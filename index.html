@@ -1,0 +1,35 @@
+
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Vehicles — Prova OAuth</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <header class="top">
+    <h1>Vehicles (prova)</h1>
+    <div class="actions">
+      <button id="btnLogin">Iniciar sessió</button>
+      <button id="btnLogout" class="hidden">Tancar sessió</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Estat</h2>
+      <pre id="status">Carregant…</pre>
+    </section>
+
+    <section class="card">
+      <h2>Info</h2>
+      <p>Aquesta és la iteració 1: login OAuth (PKCE) i token guardat.</p>
+      <p>La iteració 2 afegirà la consulta a una capa amb /query.</p>
+    </section>
+  </main>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
