@@ -1,4 +1,3 @@
-// Afegim "esri/intl" per al català i "esri/config" per a la configuració global
 require([
     "esri/config",
     "esri/intl",
@@ -7,25 +6,26 @@ require([
     "esri/layers/FeatureLayer"
 ], function(esriConfig, esriIntl, OAuthInfo, esriId, FeatureLayer) {
 
-    // 1. CONFIGURACIÓ DE L'IDIOMA (CATALÀ)
+    // 1. IDIOMA EN CATALÀ
     esriIntl.setLocale("ca");
+    console.log("Idioma configurat: Català");
 
     const CONFIG = {
         appId: "nqpbkytcOS0q53Ja",
-        layerUrl: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0",
-        portalUrl: "https://www.arcgis.com" // Afegit el 'www' per estabilitat
+        // Nota: He usat la URL base del teu portal (services-eu1) per a l'autenticació
+        portalUrl: "https://www.arcgis.com", 
+        layerUrl: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0"
     };
 
     const info = new OAuthInfo({
         appId: CONFIG.appId,
         portalUrl: CONFIG.portalUrl,
-        authNamespace: "portal",
-        popup: false // Redirigeix a la mateixa finestra
+        popup: false // Redirecció completa (millor per a mòbils)
     });
 
     esriId.registerOAuthInfos([info]);
 
-    // 2. GESTIÓ DE VISTES
+    // GESTIÓ DE VISTES
     const views = {
         loading: document.getElementById("view-loading"),
         landing: document.getElementById("view-landing"),
@@ -33,35 +33,34 @@ require([
     };
 
     function showView(viewName) {
+        console.log("Canviant a vista:", viewName);
         Object.keys(views).forEach(key => {
             if (views[key]) views[key].classList.add("hidden");
         });
         if (views[viewName]) views[viewName].classList.remove("hidden");
     }
 
-    // 3. CONTROL DE LOGIN (CORREGIT)
-    // Intentem veure si l'usuari ja està loguejat
+    // --- PROCES D'AUTENTICACIÓ ---
+    console.log("Comprovant estat de la sessió...");
+    
     esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing")
         .then(() => {
-            console.log("Usuari ja autenticat");
+            console.log("Sessió trobada!");
             showView('landing');
         })
         .catch(() => {
-            console.log("Usuari no autenticat. Intentant login...");
-            // Si no està loguejat, forcem el login
-            // Afegim un petit retard per evitar bucles infinits de càrrega
-            setTimeout(() => {
-                esriId.getCredential(CONFIG.portalUrl + "/sharing", { oAuthPopupConfirmation: false });
-            }, 500);
+            console.log("No s'ha trobat sessió. Redirigint a login d'ArcGIS...");
+            // Si no hi ha sessió, forcem el login immediat
+            esriId.getCredential(CONFIG.portalUrl + "/sharing");
         });
 
-    // 4. LOGICA DE LA CAPA
+    // --- LÒGICA DE CAPA ---
     const layerVehicles = new FeatureLayer({ 
         url: CONFIG.layerUrl,
-        outFields: ["*"] 
+        outFields: ["data", "vehicle_gepif", "quilometres_finals"]
     });
 
-    // --- ESDEVENIMENTS ---
+    // --- BOTONS ---
 
     document.getElementById("btn-select-vehicles").onclick = async () => {
         showView('query');
@@ -77,7 +76,7 @@ require([
         window.location.reload();
     };
 
-    // --- FUNCIONS AUXILIARS ---
+    // --- FUNCIONS DE DADES ---
 
     function setupDefaultFilters() {
         const fa7dies = new Date();
@@ -90,6 +89,7 @@ require([
         const selector = document.getElementById("select-vehicle-list");
         if (selector.options.length > 1) return;
 
+        console.log("Carregant llista de vehicles únics...");
         const query = layerVehicles.createQuery();
         query.where = "1=1";
         query.outFields = ["vehicle_gepif"];
@@ -107,6 +107,7 @@ require([
                     selector.appendChild(opt);
                 }
             });
+            console.log("Llista de vehicles carregada.");
         } catch (e) {
             console.error("Error carregant vehicles:", e);
         }
@@ -131,6 +132,7 @@ require([
         query.orderByFields = ["data DESC"];
 
         try {
+            console.log("Executant consulta:", query.where);
             const res = await layerVehicles.queryFeatures(query);
             countLabel.innerText = `${res.features.length} registres trobats`;
             container.innerHTML = "";
@@ -141,27 +143,26 @@ require([
             }
 
             res.features.forEach(f => {
-                const attr = f.attributes;
-                const dataFmt = new Date(attr.data).toLocaleDateString("ca-ES", {
-                    day: '2-digit', month: '2-digit', year: 'numeric'
-                });
+                const a = f.attributes;
+                const d = new Date(a.data);
+                const dataFmt = isNaN(d) ? "Data desconeguda" : d.toLocaleDateString("ca-ES");
 
                 const card = document.createElement("div");
                 card.className = "vehicle-card";
                 card.innerHTML = `
                     <div class="card-header">
-                        <span class="card-title">${attr.vehicle_gepif || 'Sense ID'}</span>
+                        <span class="card-title">${a.vehicle_gepif || 'Sense ID'}</span>
                         <span class="card-date">${dataFmt}</span>
                     </div>
                     <div class="card-body">
-                        Km finals: <span class="km-badge">${attr.quilometres_finals || 0} km</span>
+                        Km finals: <span class="km-badge">${a.quilometres_finals || 0} km</span>
                     </div>
                 `;
                 container.appendChild(card);
             });
         } catch (e) {
-            container.innerHTML = "<p>Error en carregar les dades. Revisa els permisos de la capa.</p>";
-            console.error(e);
+            console.error("Error en la consulta:", e);
+            container.innerHTML = "<p>Error en carregar les dades. Revisa els permisos.</p>";
         }
     }
 });
