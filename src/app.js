@@ -1,44 +1,65 @@
+// Afegim "esri/intl" per al català i "esri/config" per a la configuració global
 require([
+    "esri/config",
+    "esri/intl",
     "esri/identity/OAuthInfo",
     "esri/identity/IdentityManager",
     "esri/layers/FeatureLayer"
-], function(OAuthInfo, esriId, FeatureLayer) {
+], function(esriConfig, esriIntl, OAuthInfo, esriId, FeatureLayer) {
 
-    // Configuració
+    // 1. CONFIGURACIÓ DE L'IDIOMA (CATALÀ)
+    esriIntl.setLocale("ca");
+
     const CONFIG = {
         appId: "nqpbkytcOS0q53Ja",
         layerUrl: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0",
-        portalUrl: "https://arcgis.com"
+        portalUrl: "https://www.arcgis.com" // Afegit el 'www' per estabilitat
     };
 
-    // OAuth
     const info = new OAuthInfo({
         appId: CONFIG.appId,
-        popup: false,
-        portalUrl: CONFIG.portalUrl
+        portalUrl: CONFIG.portalUrl,
+        authNamespace: "portal",
+        popup: false // Redirigeix a la mateixa finestra
     });
+
     esriId.registerOAuthInfos([info]);
 
-    // DOM Elements
+    // 2. GESTIÓ DE VISTES
     const views = {
         loading: document.getElementById("view-loading"),
         landing: document.getElementById("view-landing"),
         query: document.getElementById("view-query")
     };
 
-    // Autenticació automàtica al carregar
-    esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing")
-        .then(() => { showView('landing'); })
-        .catch(() => { esriId.getCredential(CONFIG.portalUrl + "/sharing"); });
-
-    // Funció per canviar de vista
     function showView(viewName) {
-        Object.keys(views).forEach(key => views[key].classList.add("hidden"));
-        views[viewName].classList.remove("hidden");
+        Object.keys(views).forEach(key => {
+            if (views[key]) views[key].classList.add("hidden");
+        });
+        if (views[viewName]) views[viewName].classList.remove("hidden");
     }
 
-    // Inicialització de la capa de Vehicles
-    const layerVehicles = new FeatureLayer({ url: CONFIG.layerUrl });
+    // 3. CONTROL DE LOGIN (CORREGIT)
+    // Intentem veure si l'usuari ja està loguejat
+    esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing")
+        .then(() => {
+            console.log("Usuari ja autenticat");
+            showView('landing');
+        })
+        .catch(() => {
+            console.log("Usuari no autenticat. Intentant login...");
+            // Si no està loguejat, forcem el login
+            // Afegim un petit retard per evitar bucles infinits de càrrega
+            setTimeout(() => {
+                esriId.getCredential(CONFIG.portalUrl + "/sharing", { oAuthPopupConfirmation: false });
+            }, 500);
+        });
+
+    // 4. LOGICA DE LA CAPA
+    const layerVehicles = new FeatureLayer({ 
+        url: CONFIG.layerUrl,
+        outFields: ["*"] 
+    });
 
     // --- ESDEVENIMENTS ---
 
@@ -50,25 +71,23 @@ require([
     };
 
     document.getElementById("btn-back").onclick = () => showView('landing');
-
     document.getElementById("btn-refresh").onclick = executarConsulta;
-
     document.getElementById("btn-logout").onclick = () => {
         esriId.destroyCredentials();
         window.location.reload();
     };
 
-    // --- LÒGICA DE DADES ---
+    // --- FUNCIONS AUXILIARS ---
 
     function setupDefaultFilters() {
         const fa7dies = new Date();
         fa7dies.setDate(fa7dies.getDate() - 7);
-        document.getElementById("filter-date").value = fa7dies.toISOString().split('T')[0];
+        const inputData = document.getElementById("filter-date");
+        if (inputData) inputData.value = fa7dies.toISOString().split('T')[0];
     }
 
     async function carregarUniqueVehicles() {
         const selector = document.getElementById("select-vehicle-list");
-        // Si ja té opcions (més de la de "Tots"), no tornem a carregar
         if (selector.options.length > 1) return;
 
         const query = layerVehicles.createQuery();
@@ -88,7 +107,9 @@ require([
                     selector.appendChild(opt);
                 }
             });
-        } catch (e) { console.error("Error carregar selectors", e); }
+        } catch (e) {
+            console.error("Error carregant vehicles:", e);
+        }
     }
 
     async function executarConsulta() {
@@ -98,10 +119,10 @@ require([
         container.innerHTML = "<calcite-loader label='Cercant...'></calcite-loader>";
         
         const vehicle = document.getElementById("select-vehicle-list").value;
-        const data = document.getElementById("filter-date").value;
+        const dataInput = document.getElementById("filter-date").value;
 
         let condicions = ["1=1"];
-        if (data) condicions.push(`data >= DATE '${data}'`);
+        if (dataInput) condicions.push(`data >= DATE '${dataInput}'`);
         if (vehicle !== "TOTS") condicions.push(`vehicle_gepif = '${vehicle}'`);
 
         const query = layerVehicles.createQuery();
@@ -115,14 +136,14 @@ require([
             container.innerHTML = "";
 
             if (res.features.length === 0) {
-                container.innerHTML = "<p style='text-align:center; padding:20px;'>No hi ha dades per aquests filtres.</p>";
+                container.innerHTML = "<p style='text-align:center; padding:20px;'>No s'han trobat dades amb aquests filtres.</p>";
                 return;
             }
 
             res.features.forEach(f => {
                 const attr = f.attributes;
                 const dataFmt = new Date(attr.data).toLocaleDateString("ca-ES", {
-                    day: '2-digit', month: 'short', year: 'numeric'
+                    day: '2-digit', month: '2-digit', year: 'numeric'
                 });
 
                 const card = document.createElement("div");
@@ -133,13 +154,14 @@ require([
                         <span class="card-date">${dataFmt}</span>
                     </div>
                     <div class="card-body">
-                        Quilòmetres finals: <span class="km-badge">${attr.quilometres_finals || 0} km</span>
+                        Km finals: <span class="km-badge">${attr.quilometres_finals || 0} km</span>
                     </div>
                 `;
                 container.appendChild(card);
             });
         } catch (e) {
-            container.innerHTML = "<p>Error consultant dades.</p>";
+            container.innerHTML = "<p>Error en carregar les dades. Revisa els permisos de la capa.</p>";
+            console.error(e);
         }
     }
 });
