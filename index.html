@@ -1,35 +1,98 @@
-
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ca">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Vehicles — Prova OAuth</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consultes App - Vehicles</title>
+  
+  <!-- Estils per a mòbil i Calcite (UI d'Esri) -->
+  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css" />
+  <script type="module" src="https://js.arcgis.com/calcite-components/1.9.2/calcite.esm.js"></script>
+  <link rel="stylesheet" href="https://js.arcgis.com/calcite-components/1.9.2/calcite.css" />
+
+  <style>
+    body { display: flex; flex-direction: column; height: 100vh; margin: 0; }
+    #landing { padding: 20px; text-align: center; }
+    .hidden { display: none; }
+    #results { flex: 1; overflow: auto; padding: 10px; }
+  </style>
 </head>
-
 <body>
-  <header class="top">
-    <h1>Vehicles (prova)</h1>
-    <div class="actions">
-      <button id="btnLogin">Iniciar sessió</button>
-      <button id="btnLogout" class="hidden">Tancar sessió</button>
+
+  <!-- LANDING PAGE -->
+  <div id="landing">
+    <calcite-card>
+      <h2 slot="title">Benvingut a Consultes-App</h2>
+      <p slot="subtitle">Tria una capa per començar</p>
+      <calcite-button id="btn-vehicles" width="full">Consultar Capa de Vehicles</calcite-button>
+    </calcite-card>
+  </div>
+
+  <!-- APP DE CONSULTA -->
+  <div id="app-content" class="hidden">
+    <calcite-navigation slot="header">
+        <calcite-navigation-logo slot="logo" heading="Filtre de Vehicles"></calcite-navigation-logo>
+    </calcite-navigation>
+    
+    <div style="padding:15px">
+        <calcite-label>Estat del Vehicle
+            <calcite-select id="selector-estat">
+                <option value="1=1">Tots</option>
+                <option value="estat = 'Actiu'">Actius</option>
+                <option value="estat = 'Manteniment'">En Manteniment</option>
+            </calcite-select>
+        </calcite-label>
+        <calcite-button id="btn-executa" width="full">Cercar</calcite-button>
     </div>
-  </header>
 
-  <main>
-    <section class="card">
-      <h2>Estat</h2>
-      <pre id="status">Carregant…</pre>
-    </section>
+    <div id="results">
+        <!-- Aquí apareixeran els resultats -->
+    </div>
+  </div>
 
-    <section class="card">
-      <h2>Info</h2>
-      <p>Aquesta és la iteració 1: login OAuth (PKCE) i token guardat.</p>
-      <p>La iteració 2 afegirà la consulta a una capa amb /query.</p>
-    </section>
-  </main>
+  <script src="https://js.arcgis.com/4.28/"></script>
+  <script>
+    require([
+      "esri/identity/OAuthInfo",
+      "esri/identity/IdentityManager",
+      "esri/layers/FeatureLayer"
+    ], function(OAuthInfo, esriId, FeatureLayer) {
 
-  <script type="module" src="./src/app.js"></script>
+      // CONFIGURACIÓ OAUTH
+      const info = new OAuthInfo({
+        appId: "EL_TEU_CLIENT_ID", // <--- Necessito aquesta dada
+        popup: false 
+      });
+      esriId.registerOAuthInfos([info]);
+
+      const btnVehicles = document.getElementById("btn-vehicles");
+      const landing = document.getElementById("landing");
+      const appContent = document.getElementById("app-content");
+
+      btnVehicles.onclick = () => {
+        // Al clicar, demanarà login si no s'ha fet
+        esriId.getCredential("URL_DE_LA_TEVA_CAPA_VEHICLES").then(() => {
+          landing.classList.add("hidden");
+          appContent.classList.remove("hidden");
+        });
+      };
+
+      // LÒGICA DE CONSULTA
+      document.getElementById("btn-executa").onclick = () => {
+          const queryWhere = document.getElementById("selector-estat").value;
+          const layer = new FeatureLayer({ url: "URL_DE_LA_TEVA_CAPA_VEHICLES" });
+          
+          layer.queryFeatures({
+              where: queryWhere,
+              outFields: ["*"],
+              returnGeometry: false
+          }).then(res => {
+              const divRes = document.getElementById("results");
+              divRes.innerHTML = `Trobats: ${res.features.length}`;
+              // Aquí podríem fer un bucle per mostrar dades
+          });
+      };
+    });
+  </script>
 </body>
 </html>
