@@ -1,145 +1,75 @@
 <!DOCTYPE html>
 <html lang="ca">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>GEPIF - Consultes App</title>
-  
-  <!-- SDK ArcGIS i Calcite (UI per a mòbil) -->
-  <script type="module" src="https://js.arcgis.com/calcite-components/1.9.2/calcite.esm.js"></script>
-  <link rel="stylesheet" href="https://js.arcgis.com/calcite-components/1.9.2/calcite.css" />
-  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css" />
-  <script src="https://js.arcgis.com/4.28/"></script>
-
-  <style>
-    :root { --calcite-ui-brand: #005e95; }
-    body { margin: 0; padding: 0; background-color: #f4f4f4; }
-    .hidden { display: none; }
-    .card-container { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-    #results-list { margin-top: 15px; }
-    .result-item { 
-        background: white; border-radius: 8px; padding: 15px; 
-        margin-bottom: 10px; border-left: 5px solid var(--calcite-ui-brand);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-  </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>GEPIF Consultes - App</title>
+    
+    <!-- Esri & Calcite -->
+    <script type="module" src="https://js.arcgis.com/calcite-components/1.9.2/calcite.esm.js"></script>
+    <link rel="stylesheet" href="https://js.arcgis.com/calcite-components/1.9.2/calcite.css" />
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css" />
+    
+    <!-- Estils personalitzats -->
+    <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
+    <calcite-shell>
+        <calcite-navigation slot="header" id="nav-main">
+            <calcite-navigation-logo slot="logo" heading="GEPIF" description="Gestió de Flota"></calcite-navigation-logo>
+            <calcite-action id="btn-logout" slot="content-end" icon="sign-out" text="Sortir"></calcite-action>
+        </calcite-navigation>
 
-  <calcite-shell>
-    <calcite-navigation slot="header">
-      <calcite-navigation-logo slot="logo" heading="Consultes GEPIF" description="Gestió de Vehicles"></calcite-navigation-logo>
-    </calcite-navigation>
+        <main id="main-container">
+            <!-- VISTA 1: CARREGANT -->
+            <div id="view-loading" class="view">
+                <calcite-loader label="Autenticant..."></calcite-loader>
+            </div>
 
-    <!-- LANDING PAGE -->
-    <div id="landing-page" class="card-container">
-      <calcite-card>
-        <h2 slot="title">Benvingut</h2>
-        <p slot="subtitle">Accedeix a les dades de la flota</p>
-        <calcite-button id="btn-login-vehicles" icon-start="car" width="full">
-          Consultar Capa de Vehicles
-        </calcite-button>
-      </calcite-card>
-    </div>
+            <!-- VISTA 2: LANDING (SELECCIÓ DE CAPA) -->
+            <div id="view-landing" class="view hidden">
+                <div class="welcome-section">
+                    <h1>Hola! 👋</h1>
+                    <p>Quines dades vols consultar avui?</p>
+                </div>
+                <div class="grid-menu">
+                    <calcite-card id="btn-select-vehicles">
+                        <div class="card-icon"><calcite-icon icon="car" scale="l"></calcite-icon></div>
+                        <h3 slot="title">Vehicles</h3>
+                        <p slot="subtitle">Control de quilòmetres i estat</p>
+                    </calcite-card>
+                    <!-- Aquí podràs afegir més cards en el futur -->
+                </div>
+            </div>
 
-    <!-- PÀGINA DE FILTRES I CONSULTA -->
-    <div id="query-page" class="card-container hidden">
-      <calcite-button id="btn-tornar" appearance="outline" width="full" icon-start="chevron-left">Tornar al menú</calcite-button>
-      
-      <calcite-notice open icon="search">
-        <div slot="message">Filtra per matrícula o identificador</div>
-      </calcite-notice>
+            <!-- VISTA 3: CONSULTA -->
+            <div id="view-query" class="view hidden">
+                <div class="sticky-header">
+                    <calcite-button id="btn-back" appearance="transparent" icon-start="chevron-left" width="full">Tornar al menú principal</calcite-button>
+                </div>
 
-      <calcite-label> Identificador Vehicle (vehicle_gepif)
-        <calcite-input id="filtre-id" placeholder="Ex: G-01"></calcite-input>
-      </calcite-label>
+                <div class="filter-panel">
+                    <calcite-label>Vehicle
+                        <calcite-select id="select-vehicle-list" scale="l">
+                            <option value="TOTS">Tots els vehicles</option>
+                        </calcite-select>
+                    </calcite-label>
 
-      <calcite-label> Km finals superiors a:
-        <calcite-input id="filtre-km" type="number" placeholder="0"></calcite-input>
-      </calcite-label>
+                    <calcite-label>Dades des de
+                        <calcite-input-date-picker id="filter-date" scale="l" layout="horizontal"></calcite-input-date-picker>
+                    </calcite-label>
 
-      <calcite-button id="btn-executar-filtre" variant="primary" width="full" scale="l">CERCAR</calcite-button>
+                    <calcite-button id="btn-refresh" width="full" variant="primary" scale="l" icon-start="search">ACTUALITZAR</calcite-button>
+                </div>
 
-      <div id="results-list">
-        <!-- Aquí es carregaran els vehicles -->
-      </div>
-    </div>
-  </calcite-shell>
+                <div id="results-count"></div>
+                <div id="results-container"></div>
+            </div>
+        </main>
+    </calcite-shell>
 
-  <script>
-    require([
-      "esri/identity/OAuthInfo",
-      "esri/identity/IdentityManager",
-      "esri/layers/FeatureLayer"
-    ], function(OAuthInfo, esriId, FeatureLayer) {
-
-      // 1. CONFIGURACIÓ OAUTH
-      const info = new OAuthInfo({
-        appId: "nqpbkytcOS0q53Ja",
-        popup: false, // Recomanat per a mòbils
-        portalUrl: "https://arcgis.com"
-      });
-      esriId.registerOAuthInfos([info]);
-
-      // 2. VARIABLES DE CAPA
-      const layerUrl = "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0";
-      
-      // 3. LOGICA D'ACCÉS
-      document.getElementById("btn-login-vehicles").onclick = () => {
-        esriId.getCredential(layerUrl).then(() => {
-          document.getElementById("landing-page").classList.add("hidden");
-          document.getElementById("query-page").classList.remove("hidden");
-        });
-      };
-
-      document.getElementById("btn-tornar").onclick = () => {
-        document.getElementById("query-page").classList.add("hidden");
-        document.getElementById("landing-page").classList.remove("hidden");
-      };
-
-      // 4. LÒGICA DE CONSULTA
-      document.getElementById("btn-executar-filtre").onclick = async () => {
-        const idValue = document.getElementById("filtre-id").value;
-        const kmValue = document.getElementById("filtre-km").value;
-        
-        // Construïm la consulta SQL (WHERE)
-        let condicions = ["1=1"];
-        if (idValue) condicions.push(`vehicle_gepif LIKE '%${idValue}%'`);
-        if (kmValue) condicions.push(`quilometres_finals > ${kmValue}`);
-        
-        const queryWhere = condicions.join(" AND ");
-
-        const layer = new FeatureLayer({ url: layerUrl });
-        
-        try {
-          const results = await layer.queryFeatures({
-            where: queryWhere,
-            outFields: ["data", "vehicle_gepif", "quilometres_finals"],
-            orderByFields: ["data DESC"],
-            returnGeometry: false
-          });
-
-          const container = document.getElementById("results-list");
-          container.innerHTML = `<p>Resultats trobats: ${results.features.length}</p>`;
-
-          results.features.forEach(f => {
-            const attr = f.attributes;
-            const dataFmt = new Date(attr.data).toLocaleDateString("ca-ES");
-            
-            const div = document.createElement("div");
-            div.className = "result-item";
-            div.innerHTML = `
-              <strong>Vehicle: ${attr.vehicle_gepif || 'N/A'}</strong><br>
-              <small>Data: ${dataFmt}</small><br>
-              <span>Km Finals: ${attr.quilometres_finals || 0} km</span>
-            `;
-            container.appendChild(div);
-          });
-        } catch (error) {
-          console.error("Error en la consulta:", error);
-        }
-      };
-    });
-  </script>
+    <!-- Script de l'App -->
+    <script src="https://js.arcgis.com/4.28/"></script>
+    <script src="src/app.js"></script>
 </body>
 </html>
