@@ -1,0 +1,107 @@
+:root {
+    --brand-color: #005e95;
+    --bg-color: #f8f9fc;
+    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+body {
+    background-color: var(--bg-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#main-container {
+    max-width: 600px; /* Limitem l'amplada per a una lectura òptima en mòbil */
+    margin: 0 auto;
+    width: 100%;
+}
+
+.view {
+    padding: 20px;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.hidden { display: none; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Landing Page */
+.welcome-section { margin-bottom: 30px; }
+.welcome-section h1 { font-size: 1.8rem; margin-bottom: 5px; color: var(--brand-color); }
+
+.grid-menu {
+    display: grid;
+    gap: 15px;
+}
+
+.card-icon {
+    padding: 20px;
+    color: var(--brand-color);
+}
+
+/* Query Page */
+.filter-panel {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 20px;
+}
+
+.sticky-header {
+    margin-bottom: 15px;
+}
+
+/* Resultats */
+#results-count {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 10px;
+    padding-left: 5px;
+}
+
+.vehicle-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: var(--card-shadow);
+    border-left: 6px solid var(--brand-color);
+    transition: transform 0.2s;
+}
+
+.vehicle-card:active {
+    transform: scale(0.98);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.card-title {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #333;
+}
+
+.card-date {
+    font-size: 0.85rem;
+    color: #888;
+}
+
+.card-body {
+    font-size: 1rem;
+    color: #444;
+}
+
+.km-badge {
+    background: #eef2f7;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+}
