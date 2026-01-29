@@ -19,99 +19,97 @@ require([
     const info = new OAuthInfo({ appId: CONFIG.appId, portalUrl: CONFIG.portalUrl, popup: false });
     esriId.registerOAuthInfos([info]);
 
-    const views = {
-        loading: document.getElementById("view-loading"),
-        landing: document.getElementById("view-landing"),
-        query: document.getElementById("view-query")
+    const showView = (name) => {
+        document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+        document.getElementById(`view-${name}`).classList.remove('hidden');
     };
-
-    function showView(name) {
-        Object.keys(views).forEach(key => views[key].classList.add("hidden"));
-        views[name].classList.remove("hidden");
-    }
 
     esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing").then(() => showView('landing')).catch(() => esriId.getCredential(CONFIG.portalUrl + "/sharing"));
 
-    // Navegació
-    document.getElementById("btn-nav-treballs").onclick = () => carregarCapa('treballs');
-    document.getElementById("btn-nav-vehicles").onclick = () => carregarCapa('vehicles');
-    document.getElementById("btn-nav-expedients").onclick = () => carregarCapa('expedients');
+    document.getElementById("btn-nav-treballs").onclick = () => carregarSeccio('treballs');
+    document.getElementById("btn-nav-vehicles").onclick = () => carregarSeccio('vehicles');
+    document.getElementById("btn-nav-expedients").onclick = () => carregarSeccio('expedients');
     document.getElementById("btn-back").onclick = () => showView('landing');
-    document.getElementById("btn-refresh").onclick = () => renderitzarLlista();
+    document.getElementById("btn-refresh").onclick = () => executarConsultaLocal();
     document.getElementById("btn-tanca-modal").onclick = () => document.getElementById("modal-detalls").open = false;
 
-    async function carregarCapa(id) {
+    async function carregarSeccio(id) {
         capaActual = CONFIG.capes[id];
         showView('query');
         document.getElementById("query-title").innerText = capaActual.title;
         document.getElementById("query-title").style.color = capaActual.color;
-
-        // Mostrar calendari o selector d'any segons la capa
+        
+        // Reset d'interfície
+        document.getElementById("results-container").innerHTML = "";
+        document.getElementById("results-count").innerText = "Preparant consulta...";
+        
+        // Configurar selectors d'entrada
         document.getElementById("label-data").classList.toggle("hidden", id === "expedients");
         document.getElementById("label-any").classList.toggle("hidden", id !== "expedients");
 
+        // Execució asíncrona: Selector + Dades
         await carregarSelectors();
-        await descarregarDades();
+        await descarregarDadesServidor();
     }
 
     async function carregarSelectors() {
         const selector = document.getElementById("select-filter");
-        selector.innerHTML = '<calcite-option value="TOTS">Totes les Unitats / Vehicles</calcite-option>';
-        
+        selector.innerHTML = '<calcite-option value="TOTS">Tots els registres</calcite-option>';
         try {
+            const layer = new FeatureLayer({ url: capaActual.url });
             if (capaActual.id === "vehicles") {
                 const mestre = new FeatureLayer({ url: CONFIG.masterVehiclesUrl });
                 const res = await mestre.queryFeatures({ where: "1=1", outFields: ["Codi_vehicle"], orderByFields: ["Codi_vehicle ASC"] });
                 res.features.forEach(f => {
+                    const v = f.attributes.Codi_vehicle;
                     const opt = document.createElement("calcite-option");
-                    opt.value = f.attributes.Codi_vehicle; opt.label = f.attributes.Codi_vehicle;
-                    selector.appendChild(opt);
+                    opt.value = v; opt.label = v; selector.appendChild(opt);
                 });
             } else {
-                const layer = new FeatureLayer({ url: capaActual.url });
                 await layer.load();
                 campsCapa = layer.fields;
                 const field = layer.fields.find(f => f.name === capaActual.filterField);
                 if (field?.domain?.codedValues) {
                     field.domain.codedValues.forEach(cv => {
                         const opt = document.createElement("calcite-option");
-                        opt.value = cv.code; opt.label = cv.name;
-                        selector.appendChild(opt);
+                        opt.value = cv.code; opt.label = cv.name; selector.appendChild(opt);
                     });
                 }
             }
-            
-            // Omplir selector d'anys per a expedients
-            if (capaActual.id === "expedients") {
-                const sAny = document.getElementById("select-any");
-                if(sAny.childElementCount <= 1) {
-                    [2024, 2025, 2026].forEach(any => {
-                        const opt = document.createElement("calcite-option");
-                        opt.value = any.toString(); opt.label = any.toString();
-                        sAny.appendChild(opt);
-                    });
-                }
-            }
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Error selectors:", e); }
     }
 
-    async function descarregarDades() {
+    async function descarregarDadesServidor() {
         const container = document.getElementById("results-container");
-        container.innerHTML = "<calcite-loader label='Baixant dades...' scale='m'></calcite-loader>";
+        container.innerHTML = "<calcite-loader label='Baixant dades més recents...' scale='m'></calcite-loader>";
+        
         const layer = new FeatureLayer({ url: capaActual.url });
         try {
-            const res = await layer.queryFeatures({ where: "1=1", outFields: ["*"], num: 150 });
-            // Ordenem per CreationDate o data
-            dadesLocals = res.features.sort((a, b) => (b.attributes.data || b.attributes.CreationDate) - (a.attributes.data || a.attributes.CreationDate));
-            renderitzarLlista();
-        } catch (e) { console.error(e); }
+            await layer.load();
+            campsCapa = layer.fields;
+
+            // Intentem ordenar per 'data' i si no existeix per 'CreationDate'
+            const campOrdre = campsCapa.find(c => c.name === "data") ? "data" : "CreationDate";
+
+            const res = await layer.queryFeatures({
+                where: "1=1",
+                outFields: ["*"],
+                orderByFields: [`${campOrdre} DESC`], // FORÇAR ORDRE DES DEL SERVIDOR
+                num: 100 
+            });
+
+            dadesLocals = res.features;
+            executarConsultaLocal();
+        } catch (e) {
+            container.innerHTML = "<div class='error-msg'>No s'ha pogut carregar la capa. Revisa permisos.</div>";
+        }
     }
 
-    function renderitzarLlista() {
+    function executarConsultaLocal() {
         const container = document.getElementById("results-container");
         const filterVal = document.getElementById("select-filter").value;
-        const anyVal = document.getElementById("select-any").value;
         const dataVal = document.getElementById("filter-date").value;
+        const anyVal = document.getElementById("select-any").value;
         const dataLimit = dataVal ? new Date(dataVal).getTime() : 0;
 
         const filtrades = dadesLocals.filter(f => {
@@ -119,10 +117,11 @@ require([
             const cUnitat = (filterVal === "TOTS" || a[capaActual.filterField] === filterVal);
             let cTemps = true;
             if (capaActual.id === "expedients" && anyVal !== "TOTS") {
-                const anyData = new Date(a.CreationDate || a.EditDate).getFullYear().toString();
-                cTemps = (anyData === anyVal);
+                const dataRef = a.data || a.CreationDate;
+                cTemps = (new Date(dataRef).getFullYear().toString() === anyVal);
             } else if (dataVal) {
-                cTemps = (a.data >= dataLimit);
+                const dataRef = a.data || a.CreationDate;
+                cTemps = (dataRef >= dataLimit);
             }
             return cUnitat && cTemps;
         });
@@ -136,28 +135,34 @@ require([
             card.className = "result-card";
             card.onclick = () => obrirDetalls(f);
 
+            const d = new Date(a.data || a.CreationDate);
+            const dataFmt = isNaN(d) ? "---" : d.toLocaleDateString("ca-ES", {day:'2-digit', month:'2-digit'});
+
             if (capaActual.id === "expedients") {
-                const estatRaw = a.estat_dels_treballs || "";
-                const estatClass = "estat-" + estatRaw.toLowerCase().replace(/[\s\.]+/g, '-');
-                card.classList.add(estatClass);
+                const estat = (a.estat_dels_treballs || "").toLowerCase().replace(/[\s\.]+/g, '-');
+                card.classList.add(`estat-${estat}`);
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div style="flex:1">
-                            <span class="card-titol-gran">${a._id || ''} ${a.paratge || ''}</span>
-                            <div class="card-subtitol-estat">${estatRaw}</div>
-                        </div>
+                        <div style="flex:1;"><span class="card-titol-gran">${a._id || ''} ${a.paratge || ''}</span><div class="card-subtitol-estat">${a.estat_dels_treballs || ''}</div></div>
                         <div class="card-tag-unitat">${a.unitat_gepif || ''}</div>
+                    </div>`;
+            } else if (capaActual.id === "treballs") {
+                card.style.borderLeftColor = capaActual.color;
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                        <b>${dataFmt}</b><span class="card-tag-unitat" style="color:${capaActual.color}">${a.unitat_gepif || ''}</span>
+                    </div>
+                    <div style="font-size:0.95rem; color:#444;">
+                        Expedient: <b>${a.id_expedient_de_feines || '---'}</b><br>
+                        Jornals: <b>${a.jornals || 0}</b>
                     </div>`;
             } else {
                 card.style.borderLeftColor = capaActual.color;
-                const d = new Date(a.data);
-                const dataFmt = isNaN(d) ? "---" : d.toLocaleDateString("ca-ES", {day:'2-digit', month:'2-digit'});
-                let t = (capaActual.id === "treballs") ? a.unitat_gepif : a.vehicle_gepif;
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <b>${dataFmt}</b>
-                        <span style="background:${capaActual.color}15; color:${capaActual.color}; padding:2px 8px; border-radius:4px; font-weight:bold;">${t || ''}</span>
-                    </div>`;
+                        <b>${dataFmt}</b><span style="background:${capaActual.color}15; color:${capaActual.color}; padding:2px 8px; border-radius:4px; font-weight:bold;">${a.vehicle_gepif || ''}</span>
+                    </div>
+                    <div style="margin-top:8px; color:#444;">Km finals: <b>${a.quilometres_finals || 0} km</b></div>`;
             }
             container.appendChild(card);
         });
@@ -167,7 +172,7 @@ require([
         const a = feature.attributes;
         const modal = document.getElementById("modal-detalls");
         const contingut = document.getElementById("modal-contingut");
-        const prioritat = ["_id", "paratge", "estat_dels_treballs", "unitat_gepif", "data", "jornals", "observacions", "component_que_entra_la_informac", "vehicle_gepif", "quilometres_finals"];
+        const prioritat = ["_id", "paratge", "estat_dels_treballs", "unitat_gepif", "data", "id_expedient_de_feines", "jornals", "observacions", "component_que_entra_la_informac", "vehicle_gepif", "quilometres_finals"];
         
         let html = '<div class="detall-llista">', processats = new Set();
         const getHTML = (name) => {
