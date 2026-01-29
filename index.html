@@ -48,6 +48,34 @@
                     <h3 slot="title">Consulta Vehicles</h3>
                     <p slot="subtitle">Kilometratge i estat de la flota</p>
                 </calcite-card>
+                <!-- Dins de la grid-menu de view-landing afegeix aquesta card -->
+<calcite-card id="btn-nav-expedients">
+    <div class="card-icon" style="color: #6a1b9a;"><calcite-icon icon="folder-open" scale="l"></calcite-icon></div>
+    <h3 slot="title">Expedients de Treballs</h3>
+    <p slot="subtitle">Gestió d'estats, paratges i municipis</p>
+</calcite-card>
+
+<!-- Dins de filter-panel de view-query, modifica-ho així -->
+<div class="filter-panel">
+    <calcite-label id="label-filtre-text">Unitat GEPIF
+        <calcite-select id="select-filter" scale="l">
+            <calcite-option value="TOTS">Tots els registres</calcite-option>
+        </calcite-select>
+    </calcite-label>
+
+    <!-- Selector dinàmic: es mostrarà Any o Data segons la capa -->
+    <calcite-label id="label-data">Data d'inici:
+        <calcite-input-date-picker id="filter-date" scale="l" layout="horizontal"></calcite-input-date-picker>
+    </calcite-label>
+
+    <calcite-label id="label-any" class="hidden">Any de l'Expedient:
+        <calcite-select id="select-any" scale="l">
+            <calcite-option value="TOTS">Tots els anys</calcite-option>
+        </calcite-select>
+    </calcite-label>
+
+    <calcite-button id="btn-refresh" width="full" variant="primary" scale="l" icon-start="search">ACTUALITZAR</calcite-button>
+</div>
             </div>
         </div>
 
