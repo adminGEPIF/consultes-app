@@ -27,25 +27,44 @@ require([
     };
 
     let capaActual = null;
-    let ultimResultat = []; // Guardarem els objectes aquí per mostrar detalls
-    let campsCapa = []; // Guardarem els àlies dels camps
+    let ultimResultat = [];
+    let campsCapa = [];
 
     const info = new OAuthInfo({ appId: CONFIG.appId, portalUrl: CONFIG.portalUrl, popup: false });
     esriId.registerOAuthInfos([info]);
 
+    // MAPA DE VISTES
     const views = {
         loading: document.getElementById("view-loading"),
         landing: document.getElementById("view-landing"),
         query: document.getElementById("view-query")
     };
 
+    // Funció corregida per canviar de vista de forma segura
     function showView(viewName) {
-        Object.keys(views).forEach(key => views[key].classList.add("hidden"));
-        views[viewName].classList.remove("hidden");
+        console.log("Canviant a vista:", viewName);
+        // Primer amaguem TOTES les vistes
+        Object.keys(views).forEach(key => {
+            if (views[key]) views[key].classList.add("hidden");
+        });
+        // Després mostrem només la que volem
+        if (views[viewName]) {
+            views[viewName].classList.remove("hidden");
+        }
     }
 
-    esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing").then(() => showView('landing')).catch(() => esriId.getCredential(CONFIG.portalUrl + "/sharing"));
+    // CONTROL D'ACCÉS
+    esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing")
+        .then(() => {
+            console.log("Usuari loguejat correctament");
+            showView('landing');
+        })
+        .catch(() => {
+            console.log("Cal fer login");
+            esriId.getCredential(CONFIG.portalUrl + "/sharing");
+        });
 
+    // ESDEVENIMENTS
     document.getElementById("btn-nav-treballs").onclick = () => carregarCapa('treballs');
     document.getElementById("btn-nav-vehicles").onclick = () => carregarCapa('vehicles');
     document.getElementById("btn-back").onclick = () => showView('landing');
@@ -70,7 +89,7 @@ require([
         const layer = new FeatureLayer({ url: capaActual.url });
         try {
             await layer.load();
-            campsCapa = layer.fields; // Guardem els camps per als àlies
+            campsCapa = layer.fields;
             const field = layer.fields.find(f => f.name === capaActual.filterField);
             if (field && field.domain && field.domain.codedValues) {
                 field.domain.codedValues.forEach(cv => {
@@ -80,13 +99,13 @@ require([
                     selector.appendChild(opt);
                 });
             }
-        } catch (e) { console.error("Error carregant domini", e); }
+        } catch (e) { console.error("Error selectors", e); }
     }
 
     async function executarConsulta() {
         const container = document.getElementById("results-container");
         const countLabel = document.getElementById("results-count");
-        container.innerHTML = "<calcite-loader label='Actualitzant...'></calcite-loader>";
+        container.innerHTML = "<calcite-loader label='Actualitzant...' scale='m'></calcite-loader>";
         
         const filterVal = document.getElementById("select-filter").value;
         const layer = new FeatureLayer({ url: capaActual.url });
@@ -99,102 +118,68 @@ require([
                 where: where,
                 outFields: ["*"],
                 orderByFields: ["data DESC"],
-                num: 20
+                num: 30
             });
 
-            ultimResultat = res.features; // Guardem a memòria
-            countLabel.innerText = `Mostrant els darrers ${res.features.length} registres`;
+            ultimResultat = res.features;
+            countLabel.innerText = `Darrers ${res.features.length} registres`;
             container.innerHTML = "";
 
             res.features.forEach((f, index) => {
                 const a = f.attributes;
                 const d = new Date(a.data);
-                const dataFmt = isNaN(d) ? "Sense data" : d.toLocaleDateString("ca-ES", {day:'2-digit', month:'2-digit', year:'numeric'});
+                const dataFmt = isNaN(d) ? "Sense data" : d.toLocaleDateString("ca-ES", {day:'2-digit', month:'2-digit'});
 
                 const card = document.createElement("div");
                 card.className = "result-card";
                 card.style.borderLeftColor = capaActual.color;
-                card.onclick = () => obrirDetalls(index); // Funció en clicar
+                card.onclick = () => obrirDetalls(index);
 
-                let titol = capaActual.title.includes("Treballs") ? (a.unitat_gepif || '---') : (a.vehicle_gepif || '---');
-                let subtitol = capaActual.title.includes("Treballs") ? `Exp: ${a.id_expedient_de_feines || '---'}` : `Km: ${a.quilometres_finals || 0}`;
-
+                let titol = (capaActual.filterField === "unitat_gepif") ? (a.unitat_gepif || '---') : (a.vehicle_gepif || '---');
+                
                 card.innerHTML = `
-                    <div class="card-header">
-                        <span class="card-date"><b>${dataFmt}</b></span>
-                        <span class="card-tag" style="background:${capaActual.color}15; color:${capaActual.color}">${titol}</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <b>${dataFmt}</b>
+                        <span style="background:${capaActual.color}15; color:${capaActual.color}; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">${titol}</span>
                     </div>
-                    <div class="card-body">${subtitol}</div>
-                    <div style="text-align:right; font-size:0.7rem; color:#999; margin-top:5px;">Premeu per veure detalls</div>
+                    <div style="margin-top:8px; color:#555;">Prem per obrir fitxa</div>
                 `;
                 container.appendChild(card);
             });
         } catch (e) {
-            container.innerHTML = `<div class="error-msg">Error de permisos.<br><small>${e.message}</small></div>`;
+            container.innerHTML = `<div style="color:red; padding:15px; text-align:center;">Error carregant dades.</div>`;
         }
     }
 
-    // FUNCIÓ PER MOSTRAR TOTS ELS CAMPS
-  // ... (tota la part superior es manté igual fins a la funció obrirDetalls) ...
+    function obrirDetalls(index) {
+        const feature = ultimResultat[index];
+        const a = feature.attributes;
+        const modal = document.getElementById("modal-detalls");
+        const contingut = document.getElementById("modal-contingut");
 
-function obrirDetalls(index) {
-    const feature = ultimResultat[index];
-    const a = feature.attributes;
-    const modal = document.getElementById("modal-detalls");
-    const contingut = document.getElementById("modal-contingut");
+        const ordrePrioritari = ["data", "unitat_gepif", "id_expedient_de_feines", "jornals", "observacions", "component_que_entra_la_informac", "vehicle_gepif", "quilometres_finals"];
 
-    // 1. Definim l'ordre prioritari que volem (noms interns del camp)
-    const ordrePrioritari = [
-        "data", 
-        "unitat_gepif", 
-        "id_expedient_de_feines", 
-        "jornals", 
-        "observacions", 
-        "component_que_entra_la_informac"
-    ];
+        let html = '<div class="detall-llista">';
+        let processats = new Set();
 
-    let html = '<div class="detall-llista">';
-    let campsProcessats = new Set(); // Per no repetir camps
+        const getHTML = (name) => {
+            const c = campsCapa.find(item => item.name === name);
+            if (!c) return '';
+            let val = a[c.name];
+            if (c.type === "date" && val) val = new Date(val).toLocaleString("ca-ES");
+            if (!val) val = "---";
+            processats.add(c.name);
+            return `<div class="detall-item"><label>${c.alias || c.name}</label><div>${val}</div></div>`;
+        };
 
-    // Funció auxiliar per generar el HTML d'un camp
-    const generaCampHTML = (nomCamp) => {
-        const camp = campsCapa.find(c => c.name === nomCamp);
-        if (!camp) return ''; // Si el camp no existeix a aquesta capa, no fem res
+        ordrePrioritari.forEach(n => html += getHTML(n));
+        campsCapa.forEach(c => {
+            if (!["objectid", "globalid", "Creator", "Editor", "EditDate", "CreationDate"].includes(c.name) && !processats.has(c.name)) {
+                html += getHTML(c.name);
+            }
+        });
 
-        let valor = a[camp.name];
-        if (camp.type === "date" && valor) {
-            valor = new Date(valor).toLocaleString("ca-ES", {
-                day: '2-digit', month: '2-digit', year: 'numeric',
-                hour: '2-digit', minute: '2-digit'
-            });
-        }
-        if (valor === null || valor === undefined || valor === "") valor = "---";
-
-        campsProcessats.add(camp.name);
-        return `
-            <div class="detall-item">
-                <label>${camp.alias || camp.name}</label>
-                <div>${valor}</div>
-            </div>
-        `;
-    };
-
-    // 2. Primer generem els camps en l'ordre especificat
-    ordrePrioritari.forEach(nom => {
-        html += generaCampHTML(nom);
-    });
-
-    // 3. Després generem la resta de camps que no estiguin a la llista de prioritat
-    campsCapa.forEach(camp => {
-        // Saltem camps tècnics i els que ja hem posat
-        const tecnics = ["objectid", "globalid", "Creator", "Editor", "EditDate", "CreationDate"];
-        if (tecnics.includes(camp.name) || campsProcessats.has(camp.name)) return;
-
-        html += generaCampHTML(camp.name);
-    });
-
-    html += '</div>';
-    contingut.innerHTML = html;
-    modal.open = true;
-}
+        contingut.innerHTML = html + '</div>';
+        modal.open = true;
+    }
 });
