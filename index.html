@@ -52,20 +52,29 @@
         </div>
 
         <!-- VISTA 3: CONSULTA (Amagada per defecte amb class hidden) -->
-        <div id="view-query" class="view hidden">
-            <calcite-button id="btn-back" appearance="transparent" icon-start="chevron-left" width="full">Tornar al menú</calcite-button>
-            <h2 id="query-title">Consulta</h2>
-            <div class="filter-panel">
-                <calcite-label>Filtrar per Unitat / Vehicle
-                    <calcite-select id="select-filter" scale="l">
-                        <calcite-option value="TOTS">Tots els registres</calcite-option>
-                    </calcite-select>
-                </calcite-label>
-                <calcite-button id="btn-refresh" width="full" variant="primary" scale="l" icon-start="search">ACTUALITZAR</calcite-button>
-            </div>
-            <div id="results-count"></div>
-            <div id="results-container"></div>
-        </div>
+       
+<div id="view-query" class="view hidden">
+    <calcite-button id="btn-back" appearance="transparent" icon-start="chevron-left" width="full">Tornar al menú</calcite-button>
+    <h2 id="query-title">Consulta</h2>
+
+    <div class="filter-panel">
+        <calcite-label>Unitat / Vehicle
+            <calcite-select id="select-filter" scale="l">
+                <calcite-option value="TOTS">Tots els registres</calcite-option>
+            </calcite-select>
+        </calcite-label>
+
+        <!-- REINCORPORAT: Filtre de data -->
+        <calcite-label>Des de la data:
+            <calcite-input-date-picker id="filter-date" scale="l" layout="horizontal"></calcite-input-date-picker>
+        </calcite-label>
+
+        <calcite-button id="btn-refresh" width="full" variant="primary" scale="l" icon-start="search">ACTUALITZAR</calcite-button>
+    </div>
+
+    <div id="results-count"></div>
+    <div id="results-container"></div>
+</div>
 
         <!-- MODAL DETALLS -->
         <calcite-modal id="modal-detalls" width="m" scrollable>
