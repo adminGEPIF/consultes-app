@@ -13,7 +13,7 @@ require([
         appId: "nqpbkytcOS0q53Ja",
         portalUrl: "https://gepif.maps.arcgis.com", //"https://www.arcgis.com"
         // Capa on hi ha les dades (Survey123)
-        layerResultats: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/",
+        layerResultats: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0",
         // Capa per omplir el selector (Vehicles_enViu)
         layerMestre: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/Vehicles_enViu/FeatureServer/0"
     };
