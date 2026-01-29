@@ -43,9 +43,7 @@ require([
     };
 
     function showView(viewName) {
-        Object.keys(views).forEach(key => {
-            if (views[key]) views[key].classList.add("hidden");
-        });
+        Object.keys(views).forEach(key => { if (views[key]) views[key].classList.add("hidden"); });
         if (views[viewName]) views[viewName].classList.remove("hidden");
     }
 
@@ -64,10 +62,10 @@ require([
         document.getElementById("query-title").innerText = capaActual.title;
         document.getElementById("query-title").style.color = capaActual.color;
         
-        // Posem data de fa 15 dies per defecte
-        const fa15 = new Date();
-        fa15.setDate(fa15.getDate() - 15);
-        document.getElementById("filter-date").value = fa15.toISOString().split('T')[0];
+        // Data per defecte: fa 30 dies per veure més registres
+        const fa30 = new Date();
+        fa30.setDate(fa30.getDate() - 30);
+        document.getElementById("filter-date").value = fa30.toISOString().split('T')[0];
 
         await carregarSelectors();
         executarConsulta();
@@ -79,64 +77,72 @@ require([
         
         try {
             if (capaActual.id === "vehicles") {
-                // CARREGAR DES DE CAPA MESTRE
                 const mestreLayer = new FeatureLayer({ url: CONFIG.masterVehiclesUrl });
                 const res = await mestreLayer.queryFeatures({ where: "1=1", outFields: ["Codi_vehicle"], orderByFields: ["Codi_vehicle ASC"] });
                 res.features.forEach(f => {
-                    const opt = document.createElement("calcite-option");
-                    opt.value = f.attributes.Codi_vehicle;
-                    opt.label = f.attributes.Codi_vehicle;
-                    selector.appendChild(opt);
+                    const val = f.attributes.Codi_vehicle;
+                    if(val){
+                        const opt = document.createElement("calcite-option");
+                        opt.value = val; opt.label = val;
+                        selector.appendChild(opt);
+                    }
                 });
             } else {
-                // CARREGAR DES DEL DOMINI DE TREBALLS
                 const layer = new FeatureLayer({ url: capaActual.url });
                 await layer.load();
-                campsCapa = layer.fields;
                 const field = layer.fields.find(f => f.name === capaActual.filterField);
                 if (field && field.domain && field.domain.codedValues) {
                     field.domain.codedValues.forEach(cv => {
                         const opt = document.createElement("calcite-option");
-                        opt.value = cv.code;
-                        opt.label = cv.name;
+                        opt.value = cv.code; opt.label = cv.name;
                         selector.appendChild(opt);
                     });
                 }
             }
-        } catch (e) { console.error("Error selectors", e); }
+        } catch (e) { console.error("Error carregant selectors", e); }
     }
 
     async function executarConsulta() {
         const container = document.getElementById("results-container");
         const countLabel = document.getElementById("results-count");
-        container.innerHTML = "<calcite-loader label='Actualitzant...' scale='m'></calcite-loader>";
+        container.innerHTML = "<calcite-loader label='Cercant...' scale='m'></calcite-loader>";
         
         const filterVal = document.getElementById("select-filter").value;
         const dataVal = document.getElementById("filter-date").value;
         
         const layer = new FeatureLayer({ url: capaActual.url });
-        await layer.load();
-        campsCapa = layer.fields;
-
-        let conds = ["1=1"];
-        if (filterVal !== "TOTS") conds.push(`${capaActual.filterField} = '${filterVal}'`);
-        
-        if (dataVal) {
-            const milis = new Date(dataVal).getTime();
-            conds.push(`data >= ${milis}`);
-        }
-
         try {
+            await layer.load();
+            campsCapa = layer.fields;
+
+            let conds = ["1=1"];
+            if (filterVal !== "TOTS") {
+                conds.push(`${capaActual.filterField} = '${filterVal}'`);
+            }
+            
+            if (dataVal) {
+                // FORMAT COMPATIBLE: DATE 'YYYY-MM-DD'
+                conds.push(`data >= DATE '${dataVal}'`);
+            }
+
+            const queryWhere = conds.join(" AND ");
+            console.log("SQL Enviada:", queryWhere);
+
             const res = await layer.queryFeatures({
-                where: conds.join(" AND "),
+                where: queryWhere,
                 outFields: ["*"],
                 orderByFields: ["data DESC"],
-                num: 100 // Augmentem a 100 registres
+                num: 50 
             });
 
             ultimResultat = res.features;
             countLabel.innerText = `Trobats ${res.features.length} registres`;
             container.innerHTML = "";
+
+            if (res.features.length === 0) {
+                container.innerHTML = "<p style='text-align:center; padding:20px;'>No hi ha dades per aquest filtre.</p>";
+                return;
+            }
 
             res.features.forEach((f, index) => {
                 const a = f.attributes;
@@ -149,7 +155,7 @@ require([
                 card.onclick = () => obrirDetalls(index);
 
                 let titolStr = (capaActual.id === "treballs") ? (a.unitat_gepif || '---') : (a.vehicle_gepif || '---');
-                let infoExtra = (capaActual.id === "treballs") ? `Exp: ${a.id_expedient_de_feines || '---'}` : `Km: ${a.quilometres_finals || 0}`;
+                let infoExtra = (capaActual.id === "treballs") ? `Exp: ${a.id_expedient_de_feines || '---'}` : `Km: ${a.quilometres_finals || 0} km`;
 
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -160,7 +166,10 @@ require([
                 `;
                 container.appendChild(card);
             });
-        } catch (e) { container.innerHTML = "<div class='error-msg'>Error en la consulta</div>"; }
+        } catch (e) { 
+            console.error("Error detallat:", e);
+            container.innerHTML = `<div class='error-msg'>Error en la consulta.<br><small>Prova de canviar la data o el vehicle.</small></div>`; 
+        }
     }
 
     function obrirDetalls(index) {
@@ -179,7 +188,7 @@ require([
             if (!c) return '';
             let val = a[c.name];
             if (c.type === "date" && val) val = new Date(val).toLocaleString("ca-ES");
-            if (!val && val !== 0) val = "---";
+            if (val === null || val === undefined || val === "") val = "---";
             processats.add(c.name);
             return `<div class="detall-item"><label>${c.alias || c.name}</label><div>${val}</div></div>`;
         };
