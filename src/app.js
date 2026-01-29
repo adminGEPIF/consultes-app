@@ -1,28 +1,37 @@
 require([
-    "esri/config",
     "esri/intl",
     "esri/identity/OAuthInfo",
     "esri/identity/IdentityManager",
     "esri/layers/FeatureLayer"
-], function(esriConfig, esriIntl, OAuthInfo, esriId, FeatureLayer) {
+], function(esriIntl, OAuthInfo, esriId, FeatureLayer) {
 
-    // 1. Configuració bàsica
     esriIntl.setLocale("ca");
 
     const CONFIG = {
         appId: "nqpbkytcOS0q53Ja",
-        portalUrl: "https://gepif.maps.arcgis.com", //"https://www.arcgis.com"
-        // Capa on hi ha les dades (Survey123)
-        layerResultats: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0",
-        // Capa per omplir el selector (Vehicles_enViu)
-        layerMestre: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/Vehicles_enViu/FeatureServer/0"
+        portalUrl: "https://www.arcgis.com",
+        capes: {
+            treballs: {
+                title: "Seguiment de Treballs",
+                url: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_6b2f7fbe67a948dd9da7006de6592414/FeatureServer/0",
+                filterField: "unitat_gepif",
+                displayFields: ["data", "unitat_gepif", "id_expedient_de_feines", "jornals"],
+                color: "#2e7d32"
+            },
+            vehicles: {
+                title: "Control de Flota",
+                url: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0",
+                filterField: "vehicle_gepif",
+                displayFields: ["data", "vehicle_gepif", "quilometres_finals"],
+                color: "#005e95"
+            }
+        }
     };
 
-    // 2. Autenticació
+    let capaActual = null;
     const info = new OAuthInfo({ appId: CONFIG.appId, portalUrl: CONFIG.portalUrl, popup: false });
     esriId.registerOAuthInfos([info]);
 
-    // 3. Gestió de Vistes
     const views = {
         loading: document.getElementById("view-loading"),
         landing: document.getElementById("view-landing"),
@@ -34,112 +43,108 @@ require([
         views[viewName].classList.remove("hidden");
     }
 
-    // Comprovació d'inici de sessió
+    // LOGIN
     esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing")
         .then(() => showView('landing'))
         .catch(() => esriId.getCredential(CONFIG.portalUrl + "/sharing"));
 
-    // 4. Definició de Capes
-    const surveyLayer = new FeatureLayer({ url: CONFIG.layerResultats });
-    const mestreLayer = new FeatureLayer({ url: CONFIG.layerMestre });
-
-    // 5. Botons i Esdeveniments
-    document.getElementById("btn-select-vehicles").onclick = async () => {
-        showView('query');
-        await carregarSelectorMestre();
-        executarConsulta(); // Consulta automàtica en entrar
-    };
-
+    // NAVEGACIÓ
+    document.getElementById("btn-nav-treballs").onclick = () => carregarCapa('treballs');
+    document.getElementById("btn-nav-vehicles").onclick = () => carregarCapa('vehicles');
     document.getElementById("btn-back").onclick = () => showView('landing');
-    document.getElementById("btn-refresh").onclick = executarConsulta;
     document.getElementById("btn-logout").onclick = () => { esriId.destroyCredentials(); window.location.reload(); };
+    document.getElementById("btn-refresh").onclick = () => executarConsulta();
 
-    // 6. Funcions Principals
+    async function carregarCapa(id) {
+        capaActual = CONFIG.capes[id];
+        showView('query');
+        document.getElementById("query-title").innerText = capaActual.title;
+        document.getElementById("query-title").style.color = capaActual.color;
+        
+        await carregarSelectors(id);
+        executarConsulta();
+    }
 
-    async function carregarSelectorMestre() {
-        const selector = document.getElementById("select-vehicle-list");
-        if (selector.childElementCount > 1) return;
-
+    async function carregarSelectors(id) {
+        const selector = document.getElementById("select-filter");
+        selector.innerHTML = '<calcite-option value="TOTS">Tots els registres</calcite-option>';
+        
+        const layer = new FeatureLayer({ url: capaActual.url });
         try {
-            const res = await mestreLayer.queryFeatures({ 
-                where: "1=1", 
-                outFields: ["Codi_vehicle"], 
-                orderByFields: ["Codi_vehicle ASC"] 
-            });
-            
-            res.features.forEach(f => {
-                const codi = f.attributes.Codi_vehicle;
-                if (codi) {
+            await layer.load();
+            const field = layer.fields.find(f => f.name === capaActual.filterField);
+            if (field && field.domain && field.domain.codedValues) {
+                field.domain.codedValues.forEach(cv => {
                     const opt = document.createElement("calcite-option");
-                    opt.value = codi;
-                    opt.label = codi;
+                    opt.value = cv.code;
+                    opt.label = cv.name;
                     selector.appendChild(opt);
-                }
-            });
-        } catch (e) { console.error("Error carregant llista vehicles:", e); }
+                });
+            }
+        } catch (e) { console.error("Error carregant domini", e); }
     }
 
     async function executarConsulta() {
         const container = document.getElementById("results-container");
         const countLabel = document.getElementById("results-count");
-        container.innerHTML = "<calcite-loader label='Carregant dades...'></calcite-loader>";
+        container.innerHTML = "<calcite-loader label='Actualitzant...'></calcite-loader>";
         
-        const vehicleId = document.getElementById("select-vehicle-list").value;
+        const filterVal = document.getElementById("select-filter").value;
+        const layer = new FeatureLayer({ url: capaActual.url });
 
-        // --- CONFIGURACIÓ DE LA CONSULTA ---
-        const query = surveyLayer.createQuery();
-        
-        // Si hi ha un vehicle seleccionat, filtrem per vehicle. Si no, ho portem tot (1=1).
-        if (vehicleId && vehicleId !== "TOTS") {
-            query.where = `vehicle_gepif = '${vehicleId}'`;
-        } else {
-            query.where = "1=1";
+        let where = "1=1";
+        if (filterVal !== "TOTS") {
+            where = `${capaActual.filterField} = '${filterVal}'`;
         }
 
-        query.outFields = ["data", "vehicle_gepif", "quilometres_finals"];
-        query.orderByFields = ["data DESC"]; // Ordenat del més nou al més antic
-        query.num = 30; // LIMIT: Només els últims 30 registres
-
         try {
-            const res = await surveyLayer.queryFeatures(query);
+            const res = await layer.queryFeatures({
+                where: where,
+                outFields: ["*"],
+                orderByFields: ["data DESC"],
+                num: 20
+            });
+
             countLabel.innerText = `Mostrant els darrers ${res.features.length} registres`;
             container.innerHTML = "";
-
-            if (res.features.length === 0) {
-                container.innerHTML = "<p style='text-align:center; padding:20px;'>No hi ha registres disponibles.</p>";
-                return;
-            }
 
             res.features.forEach(f => {
                 const a = f.attributes;
                 const d = new Date(a.data);
-                
-                // Format de data en català (dd/mm/aaaa)
-                const dataFmt = isNaN(d) ? "Sense data" : d.toLocaleDateString("ca-ES", {
-                    day: '2-digit', 
-                    month: '2-digit', 
-                    year: 'numeric'
-                });
+                const dataFmt = isNaN(d) ? "Sense data" : d.toLocaleDateString("ca-ES", {day:'2-digit', month:'2-digit'});
 
                 const card = document.createElement("div");
-                card.className = "vehicle-card";
-                card.innerHTML = `
-                    <div class="card-header">
-                        <span class="card-date"><b>${dataFmt}</b></span>
-                        <span class="card-title">${a.vehicle_gepif || 'Desconegut'}</span>
-                    </div>
-                    <div class="card-body">
-                        Km finals: <span class="km-badge">${a.quilometres_finals || 0} km</span>
-                    </div>
-                `;
+                card.className = "result-card";
+                card.style.borderLeftColor = capaActual.color;
+
+                // Contingut dinàmic segons la capa
+                let bodyHTML = "";
+                if (capaActual.title.includes("Treballs")) {
+                    bodyHTML = `
+                        <div class="card-header">
+                            <span class="card-date"><b>${dataFmt}</b></span>
+                            <span class="card-tag">${a.unitat_gepif || '---'}</span>
+                        </div>
+                        <div class="card-body">
+                            Expedient: <b>${a.id_expedient_de_feines || '---'}</b><br>
+                            Jornals: <span class="badge">${a.jornals || 0}</span>
+                        </div>`;
+                } else {
+                    bodyHTML = `
+                        <div class="card-header">
+                            <span class="card-date"><b>${dataFmt}</b></span>
+                            <span class="card-tag">${a.vehicle_gepif || '---'}</span>
+                        </div>
+                        <div class="card-body">
+                            Km finals: <span class="badge">${a.quilometres_finals || 0} km</span>
+                        </div>`;
+                }
+
+                card.innerHTML = bodyHTML;
                 container.appendChild(card);
             });
         } catch (e) {
-            console.error("Error:", e);
-            container.innerHTML = `<div style="color:red; padding:20px;">
-                <b>Error de connexió</b><br>
-                Revisa els permisos de la capa o la connexió a internet.
-            </div>`;
+            container.innerHTML = `<div class="error-msg">Error de permisos o de capa.<br><small>${e.message}</small></div>`;
         }
     }
 });
