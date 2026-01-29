@@ -1,39 +1,43 @@
-:root {
-    --brand-treballs: #2e7d32;
-    --brand-vehicles: #005e95;
-    --bg-soft: #f4f7f4;
-}
-
-body { background-color: #f0f2f0; font-family: sans-serif; }
-.view { padding: 15px; animation: slideUp 0.3s ease-out; }
-.hidden { display: none; }
-
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.welcome-section h1 { color: var(--brand-treballs); margin-bottom: 0; }
-.grid-menu { display: grid; gap: 15px; margin-top: 20px; }
-
-.filter-panel {
-    background: white; padding: 15px; border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px;
-}
+/* ... mantenir el que ja tenies i afegir/modificar això ... */
 
 .result-card {
-    background: white; border-radius: 10px; padding: 15px;
-    margin-bottom: 12px; border-left: 6px solid #ccc;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    cursor: pointer;
+    transition: transform 0.1s, background-color 0.2s;
 }
 
-.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.card-date { font-size: 1.1rem; }
-.card-tag { 
-    background: #e8f5e9; color: #2e7d32; padding: 2px 8px; 
-    border-radius: 4px; font-size: 0.85rem; font-weight: bold;
+.result-card:active {
+    transform: scale(0.98);
+    background-color: #f9f9f9;
 }
 
-.card-body { color: #444; line-height: 1.5; }
-.badge { background: #eee; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-.error-msg { background: #ffebee; color: #c62828; padding: 15px; border-radius: 8px; text-align: center; }
+/* Estils per a la fitxa de detalls dins del modal */
+.detall-llista {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 10px 0;
+}
+
+.detall-item {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+}
+
+.detall-item label {
+    font-size: 0.75rem;
+    color: #666;
+    text-transform: uppercase;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.detall-item div {
+    font-size: 1rem;
+    color: #111;
+    word-break: break-word;
+}
+
+#modal-titol {
+    color: var(--brand-treballs);
+}
