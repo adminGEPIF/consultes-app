@@ -52,3 +52,49 @@ calcite-card { cursor: pointer; border-radius: 12px; }
 .detall-item { border-bottom: 1px solid #eee; padding: 12px 0; }
 .detall-item label { font-weight: 800; font-size: 1.1rem; display: block; color: #222; margin-bottom: 4px; }
 .detall-item div { font-size: 1.1rem; color: #444; }
+
+.robot-grid {
+    display: grid;
+    gap: 15px;
+    grid-template-columns: 1fr; /* Una columna en mòbil */
+}
+
+.robot-card {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    text-align: center;
+    border-top: 5px solid #ff5722;
+}
+
+.robot-nom {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.robot-hores {
+    font-size: 2.5rem; /* Hores en gran */
+    font-weight: 900;
+    color: #111;
+    margin: 5px 0;
+}
+
+.robot-unitat-hores {
+    font-size: 0.9rem;
+    color: #666;
+    font-weight: bold;
+}
+
+.robot-status {
+    margin-top: 10px;
+    font-weight: 800;
+    font-size: 1.1rem;
+    padding: 5px;
+    border-radius: 8px;
+}
+
+.status-si { color: #2e7d32; background: #e8f5e9; } /* Verd */
+.status-no { color: #c62828; background: #ffebee; } /* Vermell */
