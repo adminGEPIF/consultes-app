@@ -1,43 +1,191 @@
-/* ... mantenir el que ja tenies i afegir/modificar això ... */
+/* VARIABLES GLOBALS I COLORS CORPORATIUS */
+:root {
+    --brand-treballs: #2e7d32; /* Verd bosc */
+    --brand-vehicles: #005e95; /* Blau Esri */
+    --bg-main: #f0f2f0;
+    --text-dark: #1a1a1a;
+    --text-label: #333333;
+    --card-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    --transition-fast: 0.2s ease-in-out;
+}
 
+/* ESTILS GENERALS */
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-dark);
+}
+
+/* CONTENIDOR DE VISTES I ANIMACIÓ D'ENTRADA */
+.view {
+    padding: 15px;
+    animation: slideUp 0.3s ease-out;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.hidden {
+    display: none;
+}
+
+/* LANDING PAGE (PANTALLA D'INICI) */
+.welcome-section {
+    margin: 20px 0 30px 5px;
+}
+
+.welcome-section h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 5px;
+    color: var(--brand-treballs);
+}
+
+.welcome-section p {
+    color: #666;
+    font-size: 1.1rem;
+}
+
+.grid-menu {
+    display: grid;
+    gap: 20px;
+}
+
+.card-icon {
+    padding: 20px 0 10px 0;
+}
+
+/* TARGETES DE RESULTATS (LLISTA) */
 .result-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 15px;
+    border-left: 8px solid #ccc; /* Color dinàmic per JS */
+    box-shadow: var(--card-shadow);
     cursor: pointer;
-    transition: transform 0.1s, background-color 0.2s;
+    transition: transform var(--transition-fast), background-color var(--transition-fast);
 }
 
 .result-card:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
     background-color: #f9f9f9;
 }
 
-/* Estils per a la fitxa de detalls dins del modal */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.card-date {
+    font-size: 1.2rem;
+    color: var(--text-dark);
+}
+
+.card-tag {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.card-body {
+    font-size: 1.1rem;
+    color: #555;
+    line-height: 1.4;
+}
+
+.badge {
+    background: #eef2f0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    color: #111;
+}
+
+/* PANELL DE FILTRES */
+.filter-panel {
+    background: white;
+    padding: 18px;
+    border-radius: 15px;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 20px;
+}
+
+#results-count {
+    font-size: 0.95rem;
+    color: #666;
+    margin: 10px 0 10px 5px;
+    font-weight: 500;
+}
+
+/* FITXA DE DETALL (DINS DEL MODAL) */
 .detall-llista {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 10px 0;
+    gap: 0; /* Espai gestionat pel padding dels ítems */
 }
 
 .detall-item {
-    border-bottom: 1px solid #eee;
-    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 12px 0;
 }
 
+.detall-item:last-child {
+    border-bottom: none;
+}
+
+/* Nom del camp: Negreta i més gran */
 .detall-item label {
-    font-size: 0.75rem;
-    color: #666;
-    text-transform: uppercase;
-    font-weight: bold;
+    font-size: 1.1rem; /* Més gran */
+    font-weight: 800; /* Molt negreta */
+    color: var(--text-label);
     display: block;
-    margin-bottom: 2px;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
 }
 
+/* Valor de la dada */
 .detall-item div {
-    font-size: 1rem;
-    color: #111;
+    font-size: 1.15rem;
+    color: #4a4a4a;
+    line-height: 1.5;
     word-break: break-word;
 }
 
+/* Ajustos del Modal de Calcite */
 #modal-titol {
-    color: var(--brand-treballs);
+    font-weight: 800;
+    font-size: 1.5rem;
+}
+
+calcite-modal {
+    --calcite-modal-content-background: #ffffff;
+}
+
+/* MISSATGES D'ERROR */
+.error-msg {
+    background: #fff1f0;
+    border: 1px solid #ffa39e;
+    color: #cf1322;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* AJUSTOS PER A PANTALLES GRANS (TABLETS) */
+@media (min-width: 600px) {
+    .grid-menu {
+        grid-template-columns: 1fr 1fr;
+    }
 }
