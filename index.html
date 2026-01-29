@@ -3,20 +3,16 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>GEPIF Consultes - App</title>
-    
-    <!-- Esri & Calcite -->
+    <title>GEPIF - Gestió de Treballs</title>
     <script type="module" src="https://js.arcgis.com/calcite-components/1.9.2/calcite.esm.js"></script>
     <link rel="stylesheet" href="https://js.arcgis.com/calcite-components/1.9.2/calcite.css" />
     <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css" />
-    
-    <!-- Estils personalitzats -->
     <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
     <calcite-shell>
-        <calcite-navigation slot="header" id="nav-main">
-            <calcite-navigation-logo slot="logo" heading="GEPIF" description="Gestió de Flota"></calcite-navigation-logo>
+        <calcite-navigation slot="header">
+            <calcite-navigation-logo slot="logo" heading="GEPIF" description="Consultes de Camp"></calcite-navigation-logo>
             <calcite-action id="btn-logout" slot="content-end" icon="sign-out" text="Sortir"></calcite-action>
         </calcite-navigation>
 
@@ -30,35 +26,37 @@
             <div id="view-landing" class="view hidden">
                 <div class="welcome-section">
                     <h1>Hola! 👋</h1>
-                    <p>Quines dades vols consultar avui?</p>
+                    <p>Selecciona el mòdul de consulta:</p>
                 </div>
                 <div class="grid-menu">
-                    <calcite-card id="btn-select-vehicles">
-                        <div class="card-icon"><calcite-icon icon="car" scale="l"></calcite-icon></div>
-                        <h3 slot="title">Vehicles</h3>
-                        <p slot="subtitle">Control de quilòmetres i estat</p>
+                    <!-- BOTÓ TREBALLS -->
+                    <calcite-card id="btn-nav-treballs">
+                        <div class="card-icon" style="color: #2e7d32;"><calcite-icon icon="tree" scale="l"></calcite-icon></div>
+                        <h3 slot="title">Seguiment de Treballs</h3>
+                        <p slot="subtitle">Expedients, unitats i jornals</p>
                     </calcite-card>
-                    <!-- Aquí podràs afegir més cards en el futur -->
+
+                    <!-- BOTÓ VEHICLES (EL DEIXEM PER SI DE CAS) -->
+                    <calcite-card id="btn-nav-vehicles">
+                        <div class="card-icon" style="color: #005e95;"><calcite-icon icon="car" scale="l"></calcite-icon></div>
+                        <h3 slot="title">Control de Flota</h3>
+                        <p slot="subtitle">Kilometratge de vehicles</p>
+                    </calcite-card>
                 </div>
             </div>
 
             <!-- VISTA 3: CONSULTA -->
             <div id="view-query" class="view hidden">
-                <div class="sticky-header">
-                    <calcite-button id="btn-back" appearance="transparent" icon-start="chevron-left" width="full">Tornar al menú principal</calcite-button>
-                </div>
+                <calcite-button id="btn-back" appearance="transparent" icon-start="chevron-left" width="full">Tornar al menú</calcite-button>
+                
+                <h2 id="query-title" style="margin-left: 10px;">Consulta</h2>
 
                 <div class="filter-panel">
-                   <calcite-label>Vehicle
-    <calcite-select id="select-vehicle-list" scale="l">
-        <calcite-option value="TOTS" selected>Tots els vehicles</calcite-option>
-    </calcite-select>
-</calcite-label>
-
-                    <calcite-label>Dades des de
-                        <calcite-input-date-picker id="filter-date" scale="l" layout="horizontal"></calcite-input-date-picker>
+                    <calcite-label id="label-selector">Unitat GEPIF
+                        <calcite-select id="select-filter" scale="l">
+                            <calcite-option value="TOTS">Totes les Unitats</calcite-option>
+                        </calcite-select>
                     </calcite-label>
-
                     <calcite-button id="btn-refresh" width="full" variant="primary" scale="l" icon-start="search">ACTUALITZAR</calcite-button>
                 </div>
 
@@ -68,7 +66,6 @@
         </main>
     </calcite-shell>
 
-    <!-- Script de l'App -->
     <script src="https://js.arcgis.com/4.28/"></script>
     <script src="src/app.js"></script>
 </body>
