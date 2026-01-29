@@ -19,13 +19,20 @@ require([
     const info = new OAuthInfo({ appId: CONFIG.appId, portalUrl: CONFIG.portalUrl, popup: false });
     esriId.registerOAuthInfos([info]);
 
-    const showView = (name) => {
-        document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-        document.getElementById(`view-${name}`).classList.remove('hidden');
+    const views = {
+        loading: document.getElementById("view-loading"),
+        landing: document.getElementById("view-landing"),
+        query: document.getElementById("view-query")
     };
+
+    function showView(name) {
+        Object.keys(views).forEach(key => views[key].classList.add("hidden"));
+        views[name].classList.remove("hidden");
+    }
 
     esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing").then(() => showView('landing')).catch(() => esriId.getCredential(CONFIG.portalUrl + "/sharing"));
 
+    // Navegació
     document.getElementById("btn-nav-treballs").onclick = () => carregarCapa('treballs');
     document.getElementById("btn-nav-vehicles").onclick = () => carregarCapa('vehicles');
     document.getElementById("btn-nav-expedients").onclick = () => carregarCapa('expedients');
@@ -39,7 +46,7 @@ require([
         document.getElementById("query-title").innerText = capaActual.title;
         document.getElementById("query-title").style.color = capaActual.color;
 
-        // Gestió de selectors de data/any
+        // Mostrar calendari o selector d'any segons la capa
         document.getElementById("label-data").classList.toggle("hidden", id === "expedients");
         document.getElementById("label-any").classList.toggle("hidden", id !== "expedients");
 
@@ -49,41 +56,53 @@ require([
 
     async function carregarSelectors() {
         const selector = document.getElementById("select-filter");
-        selector.innerHTML = '<calcite-option value="TOTS">Totes les Unitats</calcite-option>';
-        const layer = new FeatureLayer({ url: capaActual.url });
-        await layer.load();
-        campsCapa = layer.fields;
+        selector.innerHTML = '<calcite-option value="TOTS">Totes les Unitats / Vehicles</calcite-option>';
         
-        // Emplenar Unitats
-        const field = layer.fields.find(f => f.name === capaActual.filterField);
-        if (field?.domain?.codedValues) {
-            field.domain.codedValues.forEach(cv => {
-                const opt = document.createElement("calcite-option");
-                opt.value = cv.code; opt.label = cv.name;
-                selector.appendChild(opt);
-            });
-        }
-
-        // Emplenar Anys si és expedients
-        if (capaActual.id === "expedients") {
-            const selectorAny = document.getElementById("select-any");
-            selectorAny.innerHTML = '<calcite-option value="TOTS">Tots els anys</calcite-option>';
-            const anys = [2023, 2024, 2025, 2026]; // Podria ser dinàmic, però per ara fix
-            anys.forEach(a => {
-                const opt = document.createElement("calcite-option");
-                opt.value = a.toString(); opt.label = a.toString();
-                selectorAny.appendChild(opt);
-            });
-        }
+        try {
+            if (capaActual.id === "vehicles") {
+                const mestre = new FeatureLayer({ url: CONFIG.masterVehiclesUrl });
+                const res = await mestre.queryFeatures({ where: "1=1", outFields: ["Codi_vehicle"], orderByFields: ["Codi_vehicle ASC"] });
+                res.features.forEach(f => {
+                    const opt = document.createElement("calcite-option");
+                    opt.value = f.attributes.Codi_vehicle; opt.label = f.attributes.Codi_vehicle;
+                    selector.appendChild(opt);
+                });
+            } else {
+                const layer = new FeatureLayer({ url: capaActual.url });
+                await layer.load();
+                campsCapa = layer.fields;
+                const field = layer.fields.find(f => f.name === capaActual.filterField);
+                if (field?.domain?.codedValues) {
+                    field.domain.codedValues.forEach(cv => {
+                        const opt = document.createElement("calcite-option");
+                        opt.value = cv.code; opt.label = cv.name;
+                        selector.appendChild(opt);
+                    });
+                }
+            }
+            
+            // Omplir selector d'anys per a expedients
+            if (capaActual.id === "expedients") {
+                const sAny = document.getElementById("select-any");
+                if(sAny.childElementCount <= 1) {
+                    [2024, 2025, 2026].forEach(any => {
+                        const opt = document.createElement("calcite-option");
+                        opt.value = any.toString(); opt.label = any.toString();
+                        sAny.appendChild(opt);
+                    });
+                }
+            }
+        } catch (e) { console.error(e); }
     }
 
     async function descarregarDades() {
         const container = document.getElementById("results-container");
-        container.innerHTML = "<calcite-loader label='Baixant dades...'></calcite-loader>";
+        container.innerHTML = "<calcite-loader label='Baixant dades...' scale='m'></calcite-loader>";
         const layer = new FeatureLayer({ url: capaActual.url });
         try {
             const res = await layer.queryFeatures({ where: "1=1", outFields: ["*"], num: 150 });
-            dadesLocals = res.features.sort((a, b) => (b.attributes.CreationDate || 0) - (a.attributes.CreationDate || 0));
+            // Ordenem per CreationDate o data
+            dadesLocals = res.features.sort((a, b) => (b.attributes.data || b.attributes.CreationDate) - (a.attributes.data || a.attributes.CreationDate));
             renderitzarLlista();
         } catch (e) { console.error(e); }
     }
@@ -98,13 +117,14 @@ require([
         const filtrades = dadesLocals.filter(f => {
             const a = f.attributes;
             const cUnitat = (filterVal === "TOTS" || a[capaActual.filterField] === filterVal);
-            let cData = true;
+            let cTemps = true;
             if (capaActual.id === "expedients" && anyVal !== "TOTS") {
-                cData = new Date(a.CreationDate).getFullYear().toString() === anyVal;
+                const anyData = new Date(a.CreationDate || a.EditDate).getFullYear().toString();
+                cTemps = (anyData === anyVal);
             } else if (dataVal) {
-                cData = (a.data >= dataLimit);
+                cTemps = (a.data >= dataLimit);
             }
-            return cUnitat && cData;
+            return cUnitat && cTemps;
         });
 
         document.getElementById("results-count").innerText = `${filtrades.length} registres trobats`;
@@ -117,27 +137,27 @@ require([
             card.onclick = () => obrirDetalls(f);
 
             if (capaActual.id === "expedients") {
-                // LÒGICA VISUAL EXPEDIENTS
-                const estat = (a.estat_dels_treballs || "").toLowerCase().replace(/ /g, "-").replace(/\./g, "");
-                card.classList.add(`estat-${estat}`);
+                const estatRaw = a.estat_dels_treballs || "";
+                const estatClass = "estat-" + estatRaw.toLowerCase().replace(/[\s\.]+/g, '-');
+                card.classList.add(estatClass);
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div style="flex:1;">
+                        <div style="flex:1">
                             <span class="card-titol-gran">${a._id || ''} ${a.paratge || ''}</span>
-                            <div class="card-subtitol-estat">${a.estat_dels_treballs || 'Sense estat'}</div>
+                            <div class="card-subtitol-estat">${estatRaw}</div>
                         </div>
-                        <div style="text-align:right; font-size:0.8rem; font-weight:bold; opacity:0.7;">
-                            ${a.unitat_gepif || ''}
-                        </div>
-                    </div>
-                `;
+                        <div class="card-tag-unitat">${a.unitat_gepif || ''}</div>
+                    </div>`;
             } else {
-                // LÒGICA VISUAL TREBALLS / VEHICLES
                 card.style.borderLeftColor = capaActual.color;
                 const d = new Date(a.data);
                 const dataFmt = isNaN(d) ? "---" : d.toLocaleDateString("ca-ES", {day:'2-digit', month:'2-digit'});
                 let t = (capaActual.id === "treballs") ? a.unitat_gepif : a.vehicle_gepif;
-                card.innerHTML = `<div style="display:flex; justify-content:space-between;"><b>${dataFmt}</b><span>${t || ''}</span></div>`;
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <b>${dataFmt}</b>
+                        <span style="background:${capaActual.color}15; color:${capaActual.color}; padding:2px 8px; border-radius:4px; font-weight:bold;">${t || ''}</span>
+                    </div>`;
             }
             container.appendChild(card);
         });
@@ -147,14 +167,14 @@ require([
         const a = feature.attributes;
         const modal = document.getElementById("modal-detalls");
         const contingut = document.getElementById("modal-contingut");
-        const prioritat = ["_id", "paratge", "estat_dels_treballs", "unitat_gepif", "data_dassignaci", "tipus_de_feines", "data", "jornals", "observacions"];
+        const prioritat = ["_id", "paratge", "estat_dels_treballs", "unitat_gepif", "data", "jornals", "observacions", "component_que_entra_la_informac", "vehicle_gepif", "quilometres_finals"];
         
         let html = '<div class="detall-llista">', processats = new Set();
         const getHTML = (name) => {
             const c = campsCapa.find(item => item.name === name);
             if (!c) return '';
             let val = a[c.name];
-            if (c.type === "date" && val) val = new Date(val).toLocaleDateString("ca-ES");
+            if (c.type === "date" && val) val = new Date(val).toLocaleString("ca-ES");
             processats.add(c.name);
             return `<div class="detall-item"><label>${c.alias || c.name}</label><div>${val || '---'}</div></div>`;
         };
