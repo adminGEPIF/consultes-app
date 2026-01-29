@@ -5,102 +5,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>GEPIF - Consultes Bases</title>
     
-    <!-- Calcite Components (Interfície) -->
+    <!-- Calcite Components -->
     <script type="module" src="https://js.arcgis.com/calcite-components/1.9.2/calcite.esm.js"></script>
     <link rel="stylesheet" href="https://js.arcgis.com/calcite-components/1.9.2/calcite.css" />
     
-    <!-- ArcGIS Maps SDK for JS (Lògica i Dades) -->
+    <!-- ArcGIS SDK -->
     <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css" />
     <script src="https://js.arcgis.com/4.28/"></script>
     
-    <!-- El teu CSS personalitzat -->
+    <!-- CSS Personalitzat -->
     <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
 
     <calcite-shell>
-        <!-- Capçalera de l'App -->
         <calcite-navigation slot="header">
             <calcite-navigation-logo slot="logo" heading="Consultes Bases" description="GEPIF"></calcite-navigation-logo>
             <calcite-action id="btn-logout" slot="content-end" icon="sign-out" text="Sortir"></calcite-action>
         </calcite-navigation>
 
-        <main id="main-container">
-            
-            <!-- VISTA 1: CARREGANT (Es veu al principi) -->
-            <div id="view-loading" class="view">
-                <calcite-loader label="Autenticant..." scale="l"></calcite-loader>
+        <!-- VISTA 1: CARREGANT (Visible per defecte) -->
+        <div id="view-loading" class="view">
+            <div style="display:flex; justify-content:center; align-items:center; height:100vh;">
+                <calcite-loader label="Carregant..." scale="l"></calcite-loader>
             </div>
+        </div>
 
-            <!-- VISTA 2: LANDING (Menú Principal) -->
-            <div id="view-landing" class="view hidden">
-                <div class="welcome-section">
-                    <h1>Hola! 👋</h1>
-                    <p>Selecciona el mòdul de consulta:</p>
-                </div>
-                
-                <div class="grid-menu">
-                    <!-- Targeta Seguiment de Treballs -->
-                    <calcite-card id="btn-nav-treballs">
-                        <div class="card-icon" style="color: #2e7d32;">
-                            <calcite-icon icon="trees" scale="l"></calcite-icon>
-                        </div>
-                        <h3 slot="title">Seguiment de Treballs</h3>
-                        <p slot="subtitle">Expedients, unitats i jornals</p>
-                    </calcite-card>
-
-                    <!-- Targeta Consulta Vehicles -->
-                    <calcite-card id="btn-nav-vehicles">
-                        <div class="card-icon" style="color: #005e95;">
-                            <calcite-icon icon="car" scale="l"></calcite-icon>
-                        </div>
-                        <h3 slot="title">Consulta Vehicles</h3>
-                        <p slot="subtitle">Kilometratge i estat de la flota</p>
-                    </calcite-card>
-                </div>
+        <!-- VISTA 2: LANDING (Amagada per defecte amb class hidden) -->
+        <div id="view-landing" class="view hidden">
+            <div class="welcome-section">
+                <h1>Hola! 👋</h1>
+                <p>Selecciona el mòdul de consulta:</p>
             </div>
-
-            <!-- VISTA 3: CONSULTA (Resultats i Filtres) -->
-            <div id="view-query" class="view hidden">
-                <div style="margin-bottom: 10px;">
-                    <calcite-button id="btn-back" appearance="transparent" icon-start="chevron-left" width="full">
-                        Tornar al menú principal
-                    </calcite-button>
-                </div>
-                
-                <h2 id="query-title" style="margin: 10px 0 20px 10px; font-weight: 800;">Consulta</h2>
-
-                <div class="filter-panel">
-                    <calcite-label>Filtrar per Unitat / Vehicle
-                        <calcite-select id="select-filter" scale="l">
-                            <calcite-option value="TOTS">Tots els registres</calcite-option>
-                        </calcite-select>
-                    </calcite-label>
-                    <calcite-button id="btn-refresh" width="full" variant="primary" scale="l" icon-start="search">
-                        ACTUALITZAR LLISTA
-                    </calcite-button>
-                </div>
-
-                <div id="results-count"></div>
-                <div id="results-container">
-                    <!-- Les cards de dades es generen aquí per JS -->
-                </div>
+            <div class="grid-menu">
+                <calcite-card id="btn-nav-treballs">
+                    <div class="card-icon" style="color: #2e7d32;"><calcite-icon icon="trees" scale="l"></calcite-icon></div>
+                    <h3 slot="title">Seguiment de Treballs</h3>
+                    <p slot="subtitle">Expedients, unitats i jornals</p>
+                </calcite-card>
+                <calcite-card id="btn-nav-vehicles">
+                    <div class="card-icon" style="color: #005e95;"><calcite-icon icon="car" scale="l"></calcite-icon></div>
+                    <h3 slot="title">Consulta Vehicles</h3>
+                    <p slot="subtitle">Kilometratge i estat de la flota</p>
+                </calcite-card>
             </div>
+        </div>
 
-        </main>
+        <!-- VISTA 3: CONSULTA (Amagada per defecte amb class hidden) -->
+        <div id="view-query" class="view hidden">
+            <calcite-button id="btn-back" appearance="transparent" icon-start="chevron-left" width="full">Tornar al menú</calcite-button>
+            <h2 id="query-title">Consulta</h2>
+            <div class="filter-panel">
+                <calcite-label>Filtrar per Unitat / Vehicle
+                    <calcite-select id="select-filter" scale="l">
+                        <calcite-option value="TOTS">Tots els registres</calcite-option>
+                    </calcite-select>
+                </calcite-label>
+                <calcite-button id="btn-refresh" width="full" variant="primary" scale="l" icon-start="search">ACTUALITZAR</calcite-button>
+            </div>
+            <div id="results-count"></div>
+            <div id="results-container"></div>
+        </div>
 
-        <!-- MODAL DE DETALLS (S'obre en clicar una card) -->
-        <calcite-modal id="modal-detalls" width="m" scrollable aria-labelledby="modal-titol">
+        <!-- MODAL DETALLS -->
+        <calcite-modal id="modal-detalls" width="m" scrollable>
             <h3 slot="header" id="modal-titol">Detall del Registre</h3>
-            <div slot="content" id="modal-contingut">
-                <!-- La llista de camps es genera aquí per JS -->
-            </div>
-            <calcite-button id="btn-tanca-modal" slot="primary" width="full">TANCAR FITXA</calcite-button>
+            <div slot="content" id="modal-contingut"></div>
+            <calcite-button id="btn-tanca-modal" slot="primary" width="full">TANCAR</calcite-button>
         </calcite-modal>
 
     </calcite-shell>
 
-    <!-- El teu JavaScript personalitzat -->
     <script src="src/app.js"></script>
 </body>
 </html>
