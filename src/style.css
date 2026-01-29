@@ -1,94 +1,54 @@
-/* 1. FORÇAR QUE NO ES VEGI SI TÉ LA CLASSE HIDDEN */
-.hidden {
-    display: none !important;
-}
+/* RESET I BASES */
+.hidden { display: none !important; }
 
-/* 2. FORÇAR AMPLE TOTAL AL NAVEGADOR */
 html, body {
-    margin: 0;
-    padding: 0;
-    width: 100% !important;
-    height: 100%;
+    margin: 0; padding: 0;
+    width: 100% !important; height: 100%;
     background-color: #f0f2f0;
 }
 
-/* 3. AJUSTAR EL CONTENIDOR DE CALCITE PERQUÈ NO CENTRI */
-calcite-shell {
-    width: 100% !important;
-    max-width: 100% !important;
-}
+calcite-shell { width: 100% !important; }
 
-/* 4. LA VISTA OCUPA TOT L'ESPAI DISPONIBLE */
 .view {
-    display: flex;
-    flex-direction: column;
-    width: 100% !important;
-    max-width: 100% !important; /* Eliminem qualsevol límit anterior */
-    padding: 10px !important;
+    display: flex; flex-direction: column;
+    width: 100% !important; padding: 15px !important;
     box-sizing: border-box !important;
-    margin: 0 !important;
 }
 
-/* 5. TARGETES (CARDS) AL 100% */
-.grid-menu {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    width: 100% !important;
+/* LANDING */
+.welcome-section h1 { color: #2e7d32; font-weight: 800; font-size: 1.8rem; margin: 10px 0; }
+.grid-menu { display: flex; flex-direction: column; gap: 15px; width: 100%; }
+calcite-card { cursor: pointer; border-radius: 12px; }
+.card-icon { display: flex; justify-content: center; padding: 20px 0; }
+
+/* FILTRES I LLISTA */
+.filter-panel {
+    background: white; padding: 20px; border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px;
 }
 
-calcite-card {
-    width: 100% !important;
-    margin: 0 0 10px 0 !important;
+.result-card {
+    background: white; border-radius: 12px; padding: 16px;
+    margin-bottom: 15px; border-left: 8px solid #ccc;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer;
 }
 
-/* 6. FILTRES I RESULTATS AL 100% */
-.filter-panel, .result-card {
-    width: 100% !important;
-    box-sizing: border-box !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
+/* CLASSES PER ESTAT (EXPEDIENTS) */
+.estat-assignats { background-color: #e3f2fd !important; border-left-color: #2196f3 !important; }
+.estat-actius { background-color: #e8f5e9 !important; border-left-color: #4caf50 !important; }
+.estat-pausa { background-color: #fffde7 !important; border-left-color: #fbc02d !important; }
+.estat-finalitzats { background-color: #f3e5f5 !important; border-left-color: #9c27b0 !important; }
+.estat-tancats { background-color: #ffebee !important; border-left-color: #f44336 !important; }
+.estat-cancel-lats { background-color: #eeeeee !important; border-left-color: #9e9e9e !important; }
+.estat-proposta { background-color: #fff3e0 !important; border-left-color: #ffb74d !important; }
+.estat-expedient-tancat { background-color: #3e2723 !important; color: white !important; border-left-color: #1b0000 !important; }
 
-/* LANDING TITOL */
-.welcome-section h1 {
-    color: #2e7d32;
-    font-weight: 800;
-    font-size: 1.8rem;
-    margin: 10px 0;
-}
+/* TEXTOS EXPEDIENTS */
+.card-titol-gran { font-size: 1.1rem; font-weight: 800; color: #111; line-height: 1.2; }
+.card-subtitol-estat { font-weight: 700; font-size: 0.8rem; margin-top: 4px; opacity: 0.8; }
+.card-tag-unitat { font-size: 0.8rem; font-weight: 800; opacity: 0.6; }
 
-/* DETALLS (Mantenim l'estil de la llista) */
-.detall-item {
-    border-bottom: 1px solid #eee;
-    padding: 12px 0;
-}
-
-.detall-item label {
-    font-weight: 800;
-    font-size: 1rem;
-    display: block;
-}
-/* COLORS PER ESTAT (Expedients) */
-.estat-assignats { background-color: #e3f2fd !important; border-left-color: #2196f3 !important; } /* Blau */
-.estat-actius { background-color: #e8f5e9 !important; border-left-color: #4caf50 !important; } /* Verd */
-.estat-pausa { background-color: #fffde7 !important; border-left-color: #fbc02d !important; } /* Groc */
-.estat-finalitzats { background-color: #f3e5f5 !important; border-left-color: #9c27b0 !important; } /* Lila */
-.estat-tancats { background-color: #ffebee !important; border-left-color: #f44336 !important; } /* Vermell */
-.estat-cancel-lats { background-color: #eeeeee !important; border-left-color: #9e9e9e !important; } /* Gris */
-.estat-proposta { background-color: #fff3e0 !important; border-left-color: #ffb74d !important; } /* Taronja clar */
-.estat-expedient-tancat { background-color: #3e2723 !important; color: white !important; border-left-color: #1b0000 !important; } /* Vermell fosc */
-
-/* Estil text gran Expedients */
-.card-titol-gran {
-    font-size: 1.2rem;
-    font-weight: 800;
-    display: block;
-    margin-bottom: 5px;
-}
-.card-subtitol-estat {
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 0.85rem;
-    margin-top: 5px;
-}
+/* DETALLS MODAL */
+.detall-item { border-bottom: 1px solid #eee; padding: 12px 0; }
+.detall-item label { font-weight: 800; font-size: 1.1rem; display: block; color: #222; margin-bottom: 4px; }
+.detall-item div { font-size: 1.1rem; color: #444; }
