@@ -1,76 +1,64 @@
-/* EL MÉS IMPORTANT: FORÇAR QUE NO ES VEGI SI TÉ LA CLASSE HIDDEN */
+/* 1. FORÇAR QUE NO ES VEGI SI TÉ LA CLASSE HIDDEN */
 .hidden {
     display: none !important;
 }
 
-body {
-    background-color: #f0f2f0;
+/* 2. FORÇAR AMPLE TOTAL AL NAVEGADOR */
+html, body {
     margin: 0;
+    padding: 0;
+    width: 100% !important;
+    height: 100%;
+    background-color: #f0f2f0;
 }
 
-/* VISTA: Ara ocupa tot l'ample en mòbil */
+/* 3. AJUSTAR EL CONTENIDOR DE CALCITE PERQUÈ NO CENTRI */
+calcite-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* 4. LA VISTA OCUPA TOT L'ESPAI DISPONIBLE */
 .view {
-    padding: 15px;
-    width: 100%;             /* Ocupa el 100% */
-    max-width: 100%;         /* Treiem el límit de 600px */
-    box-sizing: border-box;  /* Perquè el padding no sumi a l'amplada */
-    margin: 0;               /* Treiem el centratge lateral */
+    display: flex;
+    flex-direction: column;
+    width: 100% !important;
+    max-width: 100% !important; /* Eliminem qualsevol límit anterior */
+    padding: 10px !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
 }
 
-/* LANDING: Millorem les targetes del menú per a mòbil */
-.welcome-section h1 {
-    color: #2e7d32;
-    font-weight: 800;
-    font-size: 1.8rem;
-    margin-bottom: 10px;
-}
-
+/* 5. TARGETES (CARDS) AL 100% */
 .grid-menu {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    width: 100%;
+    width: 100% !important;
 }
 
-/* Estilitzem les cards perquè siguin més amples i elegants */
 calcite-card {
-    width: 100%;
-    cursor: pointer;
-    --calcite-card-container-background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    width: 100% !important;
+    margin: 0 0 10px 0 !important;
 }
 
-.card-icon {
-    display: flex;
-    justify-content: center;
-    padding: 20px 0;
+/* 6. FILTRES I RESULTATS AL 100% */
+.filter-panel, .result-card {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
 
-/* RESULTATS I FILTRES: Ample total */
-.filter-panel {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
-    width: 100%;
-    box-sizing: border-box;
+/* LANDING TITOL */
+.welcome-section h1 {
+    color: #2e7d32;
+    font-weight: 800;
+    font-size: 1.8rem;
+    margin: 10px 0;
 }
 
-.result-card {
-    background: white;
-    border-radius: 12px;
-    padding: 15px;
-    margin-bottom: 12px;
-    border-left: 8px solid #ccc;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    cursor: pointer;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-/* DETALLS MODAL: Que es vegi gran */
+/* DETALLS (Mantenim l'estil de la llista) */
 .detall-item {
     border-bottom: 1px solid #eee;
     padding: 12px 0;
@@ -79,12 +67,5 @@ calcite-card {
 .detall-item label {
     font-weight: 800;
     font-size: 1rem;
-    color: #222;
     display: block;
-    margin-bottom: 4px;
-}
-
-.detall-item div {
-    font-size: 1.1rem;
-    color: #444;
 }
