@@ -69,3 +69,26 @@ calcite-card {
     font-size: 1rem;
     display: block;
 }
+/* COLORS PER ESTAT (Expedients) */
+.estat-assignats { background-color: #e3f2fd !important; border-left-color: #2196f3 !important; } /* Blau */
+.estat-actius { background-color: #e8f5e9 !important; border-left-color: #4caf50 !important; } /* Verd */
+.estat-pausa { background-color: #fffde7 !important; border-left-color: #fbc02d !important; } /* Groc */
+.estat-finalitzats { background-color: #f3e5f5 !important; border-left-color: #9c27b0 !important; } /* Lila */
+.estat-tancats { background-color: #ffebee !important; border-left-color: #f44336 !important; } /* Vermell */
+.estat-cancel-lats { background-color: #eeeeee !important; border-left-color: #9e9e9e !important; } /* Gris */
+.estat-proposta { background-color: #fff3e0 !important; border-left-color: #ffb74d !important; } /* Taronja clar */
+.estat-expedient-tancat { background-color: #3e2723 !important; color: white !important; border-left-color: #1b0000 !important; } /* Vermell fosc */
+
+/* Estil text gran Expedients */
+.card-titol-gran {
+    font-size: 1.2rem;
+    font-weight: 800;
+    display: block;
+    margin-bottom: 5px;
+}
+.card-subtitol-estat {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    margin-top: 5px;
+}
