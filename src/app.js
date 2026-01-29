@@ -6,23 +6,16 @@ require([
     "esri/layers/FeatureLayer"
 ], function(esriConfig, esriIntl, OAuthInfo, esriId, FeatureLayer) {
 
-    // 1. Configurar idioma
     esriIntl.setLocale("ca");
 
     const CONFIG = {
         appId: "nqpbkytcOS0q53Ja",
         portalUrl: "https://www.arcgis.com", 
-        // Capa de dades (Survey123)
         layerResultats: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0",
-        // Capa mestre per al selector
         layerMestre: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/Vehicles_enViu/FeatureServer/0"
     };
 
-    const info = new OAuthInfo({
-        appId: CONFIG.appId,
-        portalUrl: CONFIG.portalUrl,
-        popup: false
-    });
+    const info = new OAuthInfo({ appId: CONFIG.appId, portalUrl: CONFIG.portalUrl, popup: false });
     esriId.registerOAuthInfos([info]);
 
     const views = {
@@ -32,138 +25,96 @@ require([
     };
 
     function showView(viewName) {
-        Object.keys(views).forEach(key => {
-            if(views[key]) views[key].classList.add("hidden");
-        });
-        if(views[viewName]) views[viewName].classList.remove("hidden");
+        Object.keys(views).forEach(key => views[key].classList.add("hidden"));
+        views[viewName].classList.remove("hidden");
     }
 
-    // GESTIÓ D'IDENTITAT
-    esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing")
-        .then(() => { showView('landing'); })
-        .catch(() => { esriId.getCredential(CONFIG.portalUrl + "/sharing"); });
+    esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing").then(() => showView('landing')).catch(() => esriId.getCredential(CONFIG.portalUrl + "/sharing"));
 
     const surveyLayer = new FeatureLayer({ url: CONFIG.layerResultats });
     const mestreLayer = new FeatureLayer({ url: CONFIG.layerMestre });
 
-    // ESDEVENIMENTS
     document.getElementById("btn-select-vehicles").onclick = async () => {
         showView('query');
-        setupDefaultFilters();
         await carregarSelectorMestre();
-        executarConsulta();
+        executarConsulta(); // Cridem a la consulta general
     };
 
     document.getElementById("btn-back").onclick = () => showView('landing');
     document.getElementById("btn-refresh").onclick = executarConsulta;
-    document.getElementById("btn-logout").onclick = () => {
-        esriId.destroyCredentials();
-        window.location.reload();
-    };
+    document.getElementById("btn-logout").onclick = () => { esriId.destroyCredentials(); window.location.reload(); };
 
-    function setupDefaultFilters() {
-        const fa7dies = new Date();
-        fa7dies.setDate(fa7dies.getDate() - 7);
-        const inputDate = document.getElementById("filter-date");
-        if (inputDate && !inputDate.value) {
-            inputDate.value = fa7dies.toISOString().split('T')[0];
-        }
-    }
-
-    // OMPLIR SELECTOR DES DE CAPA MESTRE
     async function carregarSelectorMestre() {
         const selector = document.getElementById("select-vehicle-list");
         if (selector.childElementCount > 1) return;
-
-        console.log("Obtenint vehicles de la capa mestre...");
-        const query = mestreLayer.createQuery();
-        query.where = "1=1";
-        query.outFields = ["Codi_vehicle"];
-        query.orderByFields = ["Codi_vehicle ASC"];
-        query.returnGeometry = false;
-
         try {
-            const res = await mestreLayer.queryFeatures(query);
+            const res = await mestreLayer.queryFeatures({ where: "1=1", outFields: ["Codi_vehicle"], orderByFields: ["Codi_vehicle ASC"] });
             res.features.forEach(f => {
-                const codi = f.attributes.Codi_vehicle;
-                if (codi) {
-                    const opt = document.createElement("calcite-option");
-                    opt.value = codi;
-                    opt.label = codi;
-                    selector.appendChild(opt);
-                }
+                const opt = document.createElement("calcite-option");
+                opt.value = f.attributes.Codi_vehicle;
+                opt.label = f.attributes.Codi_vehicle;
+                selector.appendChild(opt);
             });
-        } catch (e) {
-            console.error("Error carregant mestre:", e);
-        }
+        } catch (e) { console.error("Error mestre:", e); }
     }
 
-    // CONSULTA PRINCIPAL
+    // --- CONSULTA DE DIAGNÒSTIC ---
     async function executarConsulta() {
         const container = document.getElementById("results-container");
         const countLabel = document.getElementById("results-count");
-        container.innerHTML = "<calcite-loader label='Actualitzant...'></calcite-loader>";
+        container.innerHTML = "<calcite-loader label='Llegint format de dades...'></calcite-loader>";
         
-        const vehicleId = document.getElementById("select-vehicle-list").value;
-        const dataInput = document.getElementById("filter-date").value;
-
-        // SQL Dinàmic
-        let conds = ["1=1"];
-        if (dataInput) {
-            // Per a camps de tipus Date en Hosted Services, el format timestamp és el més segur
-            conds.push(`data >= timestamp '${dataInput} 00:00:00'`);
-        }
-        if (vehicleId && vehicleId !== "TOTS") {
-            conds.push(`vehicle_gepif = '${vehicleId}'`);
-        }
-
+        // FEM UNA CONSULTA SENSE FILTRES DE DATA PER VEURE QUÈ HI HA
         const query = surveyLayer.createQuery();
-        query.where = conds.join(" AND ");
-        query.outFields = ["data", "vehicle_gepif", "quilometres_finals"];
-        query.orderByFields = ["data DESC"]; // Ordenat de més nou a més antic
-        query.returnGeometry = false;
+        query.where = "1=1"; // Cap filtre, ho volem tot per ara
+        query.outFields = ["data", "vehicle_gepif", "quilometres_finals", "objectid"];
+        query.orderByFields = ["data DESC"];
+        query.num = 10; // Només els últims 10 registres
 
         try {
             const res = await surveyLayer.queryFeatures(query);
-            countLabel.innerText = `${res.features.length} registres trobats`;
+            countLabel.innerText = `Mode Diagnòstic: Mostrant últims ${res.features.length} registres`;
             container.innerHTML = "";
 
             if (res.features.length === 0) {
-                container.innerHTML = "<p style='text-align:center; padding:20px;'>No s'han trobat dades.</p>";
+                container.innerHTML = "<p>La capa és buida o no tens permisos de lectura.</p>";
                 return;
             }
 
+            console.log("DADES RAW REBUDES DEL SERVIDOR:");
+            
             res.features.forEach(f => {
-                const attr = f.attributes;
+                const a = f.attributes;
                 
-                // Formatar data
-                const d = new Date(attr.data);
-                const dataFmt = isNaN(d) ? "Sense data" : d.toLocaleDateString("ca-ES", {
-                    day: '2-digit', 
-                    month: '2-digit', 
-                    year: 'numeric'
-                });
+                // Analitzem el valor de 'data' a la consola
+                console.log(`ID: ${a.objectid} | Valor camp 'data':`, a.data, typeof a.data);
+
+                // Intentem convertir-la
+                const d = new Date(a.data);
+                const dataText = isNaN(d) ? `Error format (${a.data})` : d.toLocaleString("ca-ES");
 
                 const card = document.createElement("div");
                 card.className = "vehicle-card";
+                card.style.borderLeft = "6px solid orange"; // Color per indicar mode diagnòstic
                 card.innerHTML = `
                     <div class="card-header">
-                        <span class="card-date"><b>${dataFmt}</b></span>
-                        <span class="card-title">${attr.vehicle_gepif || '---'}</span>
+                        <span class="card-date"><b>${dataText}</b></span>
+                        <span class="card-title">${a.vehicle_gepif || '---'}</span>
                     </div>
                     <div class="card-body">
-                        Km finals: <span class="km-badge">${attr.quilometres_finals || 0} km</span>
+                        Km: <b>${a.quilometres_finals || 0}</b><br>
+                        <small style="color:blue">Valor RAW data: ${a.data}</small>
                     </div>
                 `;
                 container.appendChild(card);
             });
+
         } catch (e) {
-            console.error("Error consulta:", e);
-            container.innerHTML = `
-                <calcite-notice open kind="danger">
-                    <div slot="title">Error 400 o Permisos</div>
-                    <div slot="message">SQL: ${query.where}</div>
-                </calcite-notice>`;
+            console.error("Error en diagnòstic:", e);
+            container.innerHTML = `<div style="color:red; padding:20px;">
+                <b>Error Crític en la consulta</b><br>
+                Missatge: ${e.message}
+            </div>`;
         }
     }
 });
