@@ -6,7 +6,6 @@ require([
     "esri/layers/FeatureLayer"
 ], function(esriConfig, esriIntl, OAuthInfo, esriId, FeatureLayer) {
 
-    // 1. Idioma
     esriIntl.setLocale("ca");
 
     const CONFIG = {
@@ -33,28 +32,21 @@ require([
         views[viewName].classList.remove("hidden");
     }
 
-    // GESTIÓ D'ACCÉS
+    // LOGIN
     esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing")
-        .then(() => { 
-            console.log("Sessió iniciada");
-            showView('landing'); 
-        })
-        .catch(() => { 
-            console.log("Cal iniciar sessió");
-            esriId.getCredential(CONFIG.portalUrl + "/sharing"); 
-        });
+        .then(() => { showView('landing'); })
+        .catch(() => { esriId.getCredential(CONFIG.portalUrl + "/sharing"); });
 
-    // Definició de la capa amb autenticació forçada
     const layerVehicles = new FeatureLayer({ 
         url: CONFIG.layerUrl,
-        outFields: ["data", "vehicle_gepif", "quilometres_finals"]
+        outFields: ["*"] 
     });
 
     // BOTONS
     document.getElementById("btn-select-vehicles").onclick = async () => {
         showView('query');
         setupDefaultFilters();
-        await carregarVehiclesSegur();
+        await carregarConfiguracioCapa();
         executarConsulta();
     };
 
@@ -66,33 +58,35 @@ require([
     };
 
     function setupDefaultFilters() {
-        const fa7dies = new Date();
-        fa7dies.setDate(fa7dies.getDate() - 7);
-        document.getElementById("filter-date").value = fa7dies.toISOString().split('T')[0];
+        if (!document.getElementById("filter-date").value) {
+            const fa7dies = new Date();
+            fa7dies.setDate(fa7dies.getDate() - 7);
+            document.getElementById("filter-date").value = fa7dies.toISOString().split('T')[0];
+        }
     }
 
-    // FUNCIÓ SEGURA DE CÀRREGA DE VEHICLES
-    async function carregarVehiclesSegur() {
+    // DIAGNÒSTIC I CÀRREGA DE SELECTOR
+    async function carregarConfiguracioCapa() {
         const selector = document.getElementById("select-vehicle-list");
         if (selector.childElementCount > 1) return;
 
         try {
-            console.log("Carregant metadades de la capa...");
             await layerVehicles.load();
+            console.log("Camps trobats a la capa:", layerVehicles.fields.map(f => f.name));
+
+            // Busquem el camp del vehicle (ignorant majúscules/minúscules)
+            const campVehicle = layerVehicles.fields.find(f => f.name.toLowerCase() === "vehicle_gepif");
             
-            // Busquem el camp (intentem varis noms per si de cas)
-            const camp = layerVehicles.fields.find(f => f.name.toLowerCase() === "vehicle_gepif");
-            
-            if (camp && camp.domain && camp.domain.codedValues) {
-                console.log("Dominis trobats:", camp.domain.codedValues.length);
-                camp.domain.codedValues.forEach(cv => {
+            if (campVehicle && campVehicle.domain && campVehicle.domain.codedValues) {
+                campVehicle.domain.codedValues.forEach(cv => {
                     const opt = document.createElement("calcite-option");
                     opt.value = cv.code;
-                    opt.label = cv.name; 
+                    opt.label = cv.name;
                     selector.appendChild(opt);
                 });
+                console.log("Selector carregat per Domini");
             } else {
-                console.warn("No s'han trobat dominis. Intentant consulta de valors únics...");
+                // Fallback: Valors únics
                 const q = layerVehicles.createQuery();
                 q.where = "1=1";
                 q.outFields = ["vehicle_gepif"];
@@ -106,29 +100,38 @@ require([
                         selector.appendChild(opt);
                     }
                 });
+                console.log("Selector carregat per Valors Únics");
             }
         } catch (e) {
-            console.error("Error carregant el selector:", e);
+            console.error("Error carregant config capa:", e);
         }
     }
 
     async function executarConsulta() {
         const container = document.getElementById("results-container");
         const countLabel = document.getElementById("results-count");
-        container.innerHTML = "<calcite-loader label='Cercant dades...'></calcite-loader>";
+        container.innerHTML = "<calcite-loader label='Actualitzant...'></calcite-loader>";
         
         const vehicle = document.getElementById("select-vehicle-list").value;
         const dataInput = document.getElementById("filter-date").value;
 
-        // Construcció de la consulta SQL d'ArcGIS
+        // FORMAT DE DATA CORREGIT PER EVITAR ERROR 400
+        // En lloc de DATE 'YYYY-MM-DD', usem el format simple que accepta la majoria de servidors
         let conds = ["1=1"];
-        if (dataInput) conds.push(`data >= DATE '${dataInput}'`);
-        if (vehicle && vehicle !== "TOTS") conds.push(`vehicle_gepif = '${vehicle}'`);
+        if (dataInput) {
+            // Intentem el format YYYY-MM-DD HH:MM:SS per a més compatibilitat
+            conds.push(`data >= '${dataInput} 00:00:00'`);
+        }
+        if (vehicle && vehicle !== "TOTS") {
+            conds.push(`vehicle_gepif = '${vehicle}'`);
+        }
 
         const query = layerVehicles.createQuery();
         query.where = conds.join(" AND ");
-        query.outFields = ["*"];
+        query.outFields = ["data", "vehicle_gepif", "quilometres_finals"];
         query.orderByFields = ["data DESC"];
+
+        console.log("Enviant consulta SQL:", query.where);
 
         try {
             const res = await layerVehicles.queryFeatures(query);
@@ -136,7 +139,7 @@ require([
             container.innerHTML = "";
 
             if (res.features.length === 0) {
-                container.innerHTML = "<p style='padding:20px; text-align:center'>No hi ha dades.</p>";
+                container.innerHTML = "<p style='text-align:center; padding:20px;'>No s'han trobat dades.</p>";
                 return;
             }
 
@@ -159,13 +162,13 @@ require([
                 container.appendChild(card);
             });
         } catch (e) {
-            console.error("Error en executar consulta:", e);
-            // Si l'error és de permisos, aquest log ens ho dirà
-            if (e.message && e.message.includes("403")) {
-                container.innerHTML = "<div style='color:red; padding:10px;'><b>Error 403: Permisos insuficients.</b><br>Verifica que la capa està compartida correctament i que l'usuari té permís de visualització.</div>";
-            } else {
-                container.innerHTML = "<p>Error en carregar les dades. Mira la consola (F12).</p>";
-            }
+            console.error("Error detallat:", e);
+            // Si torna a fallar, provem una consulta sense data per descartar
+            container.innerHTML = `<div style="color:red; padding:20px;">
+                <b>Error 400 en la consulta</b><br>
+                SQL enviat: <code>${query.where}</code><br><br>
+                Revisa a la consola si el camp "data" existeix realment amb aquest nom.
+            </div>`;
         }
     }
 });
