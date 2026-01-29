@@ -11,7 +11,10 @@ require([
     const CONFIG = {
         appId: "nqpbkytcOS0q53Ja",
         portalUrl: "https://www.arcgis.com", 
-        layerUrl: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0"
+        // Capa de dades (Survey123)
+        layerResultats: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0",
+        // Capa mestre de vehicles (per al selector)
+        layerMestre: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/Vehicles_enViu/FeatureServer/0"
     };
 
     const info = new OAuthInfo({
@@ -37,16 +40,15 @@ require([
         .then(() => { showView('landing'); })
         .catch(() => { esriId.getCredential(CONFIG.portalUrl + "/sharing"); });
 
-    const layerVehicles = new FeatureLayer({ 
-        url: CONFIG.layerUrl,
-        outFields: ["*"] 
-    });
+    // Instàncies de les capes
+    const layerResultats = new FeatureLayer({ url: CONFIG.layerResultats });
+    const layerMestre = new FeatureLayer({ url: CONFIG.layerMestre });
 
     // BOTONS
     document.getElementById("btn-select-vehicles").onclick = async () => {
         showView('query');
         setupDefaultFilters();
-        await carregarConfiguracioCapa();
+        await carregarSelectorDesDeMestre();
         executarConsulta();
     };
 
@@ -65,81 +67,67 @@ require([
         }
     }
 
-    // DIAGNÒSTIC I CÀRREGA DE SELECTOR
-    async function carregarConfiguracioCapa() {
+    // 1. OMPLIR SELECTOR DES DE LA CAPA MESTRE
+    async function carregarSelectorDesDeMestre() {
         const selector = document.getElementById("select-vehicle-list");
         if (selector.childElementCount > 1) return;
 
-        try {
-            await layerVehicles.load();
-            console.log("Camps trobats a la capa:", layerVehicles.fields.map(f => f.name));
+        console.log("Consultant capa mestre de vehicles...");
+        const queryMestre = layerMestre.createQuery();
+        queryMestre.where = "1=1";
+        queryMestre.outFields = ["Codi_vehicle"];
+        queryMestre.orderByFields = ["Codi_vehicle ASC"];
+        queryMestre.returnGeometry = false;
 
-            // Busquem el camp del vehicle (ignorant majúscules/minúscules)
-            const campVehicle = layerVehicles.fields.find(f => f.name.toLowerCase() === "vehicle_gepif");
+        try {
+            const res = await layerMestre.queryFeatures(queryMestre);
+            console.log(`Trobats ${res.features.length} vehicles mestre.`);
             
-            if (campVehicle && campVehicle.domain && campVehicle.domain.codedValues) {
-                campVehicle.domain.codedValues.forEach(cv => {
+            res.features.forEach(f => {
+                const codi = f.attributes.Codi_vehicle;
+                if (codi) {
                     const opt = document.createElement("calcite-option");
-                    opt.value = cv.code;
-                    opt.label = cv.name;
+                    opt.value = codi;
+                    opt.label = codi;
                     selector.appendChild(opt);
-                });
-                console.log("Selector carregat per Domini");
-            } else {
-                // Fallback: Valors únics
-                const q = layerVehicles.createQuery();
-                q.where = "1=1";
-                q.outFields = ["vehicle_gepif"];
-                q.returnDistinctValues = true;
-                const res = await layerVehicles.queryFeatures(q);
-                res.features.forEach(f => {
-                    const val = f.attributes.vehicle_gepif;
-                    if(val) {
-                        const opt = document.createElement("calcite-option");
-                        opt.value = val; opt.label = val;
-                        selector.appendChild(opt);
-                    }
-                });
-                console.log("Selector carregat per Valors Únics");
-            }
+                }
+            });
         } catch (e) {
-            console.error("Error carregant config capa:", e);
+            console.error("Error carregant capa mestre:", e);
         }
     }
 
+    // 2. CONSULTA DE RESULTATS (SURVEY)
     async function executarConsulta() {
         const container = document.getElementById("results-container");
         const countLabel = document.getElementById("results-count");
         container.innerHTML = "<calcite-loader label='Actualitzant...'></calcite-loader>";
         
-        const vehicle = document.getElementById("select-vehicle-list").value;
+        const vehicleId = document.getElementById("select-vehicle-list").value;
         const dataInput = document.getElementById("filter-date").value;
 
-        // FORMAT DE DATA CORREGIT PER EVITAR ERROR 400
-        // En lloc de DATE 'YYYY-MM-DD', usem el format simple que accepta la majoria de servidors
+        // SQL corregit per evitar Error 400
         let conds = ["1=1"];
         if (dataInput) {
-            // Intentem el format YYYY-MM-DD HH:MM:SS per a més compatibilitat
-            conds.push(`data >= '${dataInput} 00:00:00'`);
+            // Format timestamp per a ArcGIS Online
+            conds.push(`data >= timestamp '${dataInput} 00:00:00'`);
         }
-        if (vehicle && vehicle !== "TOTS") {
-            conds.push(`vehicle_gepif = '${vehicle}'`);
+        if (vehicleId && vehicleId !== "TOTS") {
+            conds.push(`vehicle_gepif = '${vehicleId}'`);
         }
 
-        const query = layerVehicles.createQuery();
+        const query = layerResultats.createQuery();
         query.where = conds.join(" AND ");
         query.outFields = ["data", "vehicle_gepif", "quilometres_finals"];
         query.orderByFields = ["data DESC"];
 
-        console.log("Enviant consulta SQL:", query.where);
-
         try {
-            const res = await layerVehicles.queryFeatures(query);
+            const res = await layerResultats.queryFeatures(query);
             countLabel.innerText = `${res.features.length} registres trobats`;
             container.innerHTML = "";
 
             if (res.features.length === 0) {
-                container.innerHTML = "<p style='text-align:center; padding:20px;'>No s'han trobat dades.</p>";
+                container.innerHTML = "<p style='text-align:center; padding:20px;'>No s'han trobat registres.</p>";
                 return;
             }
 
@@ -162,12 +150,11 @@ require([
                 container.appendChild(card);
             });
         } catch (e) {
-            console.error("Error detallat:", e);
-            // Si torna a fallar, provem una consulta sense data per descartar
+            console.error("Error consulta resultats:", e);
             container.innerHTML = `<div style="color:red; padding:20px;">
-                <b>Error 400 en la consulta</b><br>
-                SQL enviat: <code>${query.where}</code><br><br>
-                Revisa a la consola si el camp "data" existeix realment amb aquest nom.
+                <b>Error en la consulta</b><br>
+                SQL: <code>${query.where}</code><br>
+                Revisa que el camp 'data' i 'vehicle_gepif' siguin correctes.
             </div>`;
         }
     }
