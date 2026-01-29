@@ -135,38 +135,66 @@ require([
     }
 
     // FUNCIÓ PER MOSTRAR TOTS ELS CAMPS
-    function obrirDetalls(index) {
-        const feature = ultimResultat[index];
-        const a = feature.attributes;
-        const modal = document.getElementById("modal-detalls");
-        const contingut = document.getElementById("modal-contingut");
+  // ... (tota la part superior es manté igual fins a la funció obrirDetalls) ...
 
-        let html = '<div class="detall-llista">';
-        
-        // Recorrem tots els camps de la capa per mostrar la dada amb el seu Àlies (nom maco)
-        campsCapa.forEach(camp => {
-            // Saltem els camps tècnics lletjos si vols
-            if (["objectid", "globalid", "Creator", "Editor", "EditDate", "CreationDate"].includes(camp.name)) return;
+function obrirDetalls(index) {
+    const feature = ultimResultat[index];
+    const a = feature.attributes;
+    const modal = document.getElementById("modal-detalls");
+    const contingut = document.getElementById("modal-contingut");
 
-            let valor = a[camp.name];
-            
-            // Formatar dates si el camp és de tipus data
-            if (camp.type === "date" && valor) {
-                valor = new Date(valor).toLocaleString("ca-ES");
-            }
-            
-            if (valor === null || valor === undefined) valor = "---";
+    // 1. Definim l'ordre prioritari que volem (noms interns del camp)
+    const ordrePrioritari = [
+        "data", 
+        "unitat_gepif", 
+        "id_expedient_de_feines", 
+        "jornals", 
+        "observacions", 
+        "component_que_entra_la_informac"
+    ];
 
-            html += `
-                <div class="detall-item">
-                    <label>${camp.alias || camp.name}</label>
-                    <div>${valor}</div>
-                </div>
-            `;
-        });
+    let html = '<div class="detall-llista">';
+    let campsProcessats = new Set(); // Per no repetir camps
 
-        html += '</div>';
-        contingut.innerHTML = html;
-        modal.open = true;
-    }
+    // Funció auxiliar per generar el HTML d'un camp
+    const generaCampHTML = (nomCamp) => {
+        const camp = campsCapa.find(c => c.name === nomCamp);
+        if (!camp) return ''; // Si el camp no existeix a aquesta capa, no fem res
+
+        let valor = a[camp.name];
+        if (camp.type === "date" && valor) {
+            valor = new Date(valor).toLocaleString("ca-ES", {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+        }
+        if (valor === null || valor === undefined || valor === "") valor = "---";
+
+        campsProcessats.add(camp.name);
+        return `
+            <div class="detall-item">
+                <label>${camp.alias || camp.name}</label>
+                <div>${valor}</div>
+            </div>
+        `;
+    };
+
+    // 2. Primer generem els camps en l'ordre especificat
+    ordrePrioritari.forEach(nom => {
+        html += generaCampHTML(nom);
+    });
+
+    // 3. Després generem la resta de camps que no estiguin a la llista de prioritat
+    campsCapa.forEach(camp => {
+        // Saltem camps tècnics i els que ja hem posat
+        const tecnics = ["objectid", "globalid", "Creator", "Editor", "EditDate", "CreationDate"];
+        if (tecnics.includes(camp.name) || campsProcessats.has(camp.name)) return;
+
+        html += generaCampHTML(camp.name);
+    });
+
+    html += '</div>';
+    contingut.innerHTML = html;
+    modal.open = true;
+}
 });
