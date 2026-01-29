@@ -6,6 +6,7 @@ require([
     "esri/layers/FeatureLayer"
 ], function(esriConfig, esriIntl, OAuthInfo, esriId, FeatureLayer) {
 
+    // 1. Configurar idioma
     esriIntl.setLocale("ca");
 
     const CONFIG = {
@@ -13,7 +14,7 @@ require([
         portalUrl: "https://www.arcgis.com", 
         // Capa de dades (Survey123)
         layerResultats: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0",
-        // Capa mestre de vehicles (per al selector)
+        // Capa mestre per al selector
         layerMestre: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/Vehicles_enViu/FeatureServer/0"
     };
 
@@ -31,24 +32,25 @@ require([
     };
 
     function showView(viewName) {
-        Object.keys(views).forEach(key => views[key].classList.add("hidden"));
-        views[viewName].classList.remove("hidden");
+        Object.keys(views).forEach(key => {
+            if(views[key]) views[key].classList.add("hidden");
+        });
+        if(views[viewName]) views[viewName].classList.remove("hidden");
     }
 
-    // LOGIN
+    // GESTIÓ D'IDENTITAT
     esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing")
         .then(() => { showView('landing'); })
         .catch(() => { esriId.getCredential(CONFIG.portalUrl + "/sharing"); });
 
-    // Instàncies de les capes
-    const layerResultats = new FeatureLayer({ url: CONFIG.layerResultats });
-    const layerMestre = new FeatureLayer({ url: CONFIG.layerMestre });
+    const surveyLayer = new FeatureLayer({ url: CONFIG.layerResultats });
+    const mestreLayer = new FeatureLayer({ url: CONFIG.layerMestre });
 
-    // BOTONS
+    // ESDEVENIMENTS
     document.getElementById("btn-select-vehicles").onclick = async () => {
         showView('query');
         setupDefaultFilters();
-        await carregarSelectorDesDeMestre();
+        await carregarSelectorMestre();
         executarConsulta();
     };
 
@@ -60,29 +62,28 @@ require([
     };
 
     function setupDefaultFilters() {
-        if (!document.getElementById("filter-date").value) {
-            const fa7dies = new Date();
-            fa7dies.setDate(fa7dies.getDate() - 7);
-            document.getElementById("filter-date").value = fa7dies.toISOString().split('T')[0];
+        const fa7dies = new Date();
+        fa7dies.setDate(fa7dies.getDate() - 7);
+        const inputDate = document.getElementById("filter-date");
+        if (inputDate && !inputDate.value) {
+            inputDate.value = fa7dies.toISOString().split('T')[0];
         }
     }
 
-    // 1. OMPLIR SELECTOR DES DE LA CAPA MESTRE
-    async function carregarSelectorDesDeMestre() {
+    // OMPLIR SELECTOR DES DE CAPA MESTRE
+    async function carregarSelectorMestre() {
         const selector = document.getElementById("select-vehicle-list");
         if (selector.childElementCount > 1) return;
 
-        console.log("Consultant capa mestre de vehicles...");
-        const queryMestre = layerMestre.createQuery();
-        queryMestre.where = "1=1";
-        queryMestre.outFields = ["Codi_vehicle"];
-        queryMestre.orderByFields = ["Codi_vehicle ASC"];
-        queryMestre.returnGeometry = false;
+        console.log("Obtenint vehicles de la capa mestre...");
+        const query = mestreLayer.createQuery();
+        query.where = "1=1";
+        query.outFields = ["Codi_vehicle"];
+        query.orderByFields = ["Codi_vehicle ASC"];
+        query.returnGeometry = false;
 
         try {
-            const res = await layerMestre.queryFeatures(queryMestre);
-            console.log(`Trobats ${res.features.length} vehicles mestre.`);
-            
+            const res = await mestreLayer.queryFeatures(query);
             res.features.forEach(f => {
                 const codi = f.attributes.Codi_vehicle;
                 if (codi) {
@@ -93,11 +94,11 @@ require([
                 }
             });
         } catch (e) {
-            console.error("Error carregant capa mestre:", e);
+            console.error("Error carregant mestre:", e);
         }
     }
 
-    // 2. CONSULTA DE RESULTATS (SURVEY)
+    // CONSULTA PRINCIPAL
     async function executarConsulta() {
         const container = document.getElementById("results-container");
         const countLabel = document.getElementById("results-count");
@@ -106,56 +107,63 @@ require([
         const vehicleId = document.getElementById("select-vehicle-list").value;
         const dataInput = document.getElementById("filter-date").value;
 
-        // SQL corregit per evitar Error 400
+        // SQL Dinàmic
         let conds = ["1=1"];
         if (dataInput) {
-            // Format timestamp per a ArcGIS Online
+            // Per a camps de tipus Date en Hosted Services, el format timestamp és el més segur
             conds.push(`data >= timestamp '${dataInput} 00:00:00'`);
         }
         if (vehicleId && vehicleId !== "TOTS") {
             conds.push(`vehicle_gepif = '${vehicleId}'`);
         }
 
-        const query = layerResultats.createQuery();
+        const query = surveyLayer.createQuery();
         query.where = conds.join(" AND ");
         query.outFields = ["data", "vehicle_gepif", "quilometres_finals"];
-        query.orderByFields = ["data DESC"];
+        query.orderByFields = ["data DESC"]; // Ordenat de més nou a més antic
+        query.returnGeometry = false;
 
         try {
-            const res = await layerResultats.queryFeatures(query);
+            const res = await surveyLayer.queryFeatures(query);
             countLabel.innerText = `${res.features.length} registres trobats`;
             container.innerHTML = "";
 
             if (res.features.length === 0) {
-                container.innerHTML = "<p style='text-align:center; padding:20px;'>No s'han trobat registres.</p>";
+                container.innerHTML = "<p style='text-align:center; padding:20px;'>No s'han trobat dades.</p>";
                 return;
             }
 
             res.features.forEach(f => {
-                const a = f.attributes;
-                const d = new Date(a.data);
-                const dataFmt = isNaN(d) ? "Sense data" : d.toLocaleDateString("ca-ES", {day:'2-digit', month:'2-digit', year:'numeric'});
+                const attr = f.attributes;
+                
+                // Formatar data
+                const d = new Date(attr.data);
+                const dataFmt = isNaN(d) ? "Sense data" : d.toLocaleDateString("ca-ES", {
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric'
+                });
 
                 const card = document.createElement("div");
                 card.className = "vehicle-card";
                 card.innerHTML = `
                     <div class="card-header">
                         <span class="card-date"><b>${dataFmt}</b></span>
-                        <span class="card-title">${a.vehicle_gepif || '---'}</span>
+                        <span class="card-title">${attr.vehicle_gepif || '---'}</span>
                     </div>
                     <div class="card-body">
-                        Km finals: <span class="km-badge">${a.quilometres_finals || 0} km</span>
+                        Km finals: <span class="km-badge">${attr.quilometres_finals || 0} km</span>
                     </div>
                 `;
                 container.appendChild(card);
             });
         } catch (e) {
-            console.error("Error consulta resultats:", e);
-            container.innerHTML = `<div style="color:red; padding:20px;">
-                <b>Error en la consulta</b><br>
-                SQL: <code>${query.where}</code><br>
-                Revisa que el camp 'data' i 'vehicle_gepif' siguin correctes.
-            </div>`;
+            console.error("Error consulta:", e);
+            container.innerHTML = `
+                <calcite-notice open kind="danger">
+                    <div slot="title">Error 400 o Permisos</div>
+                    <div slot="message">SQL: ${query.where}</div>
+                </calcite-notice>`;
         }
     }
 });
