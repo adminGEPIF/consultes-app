@@ -102,50 +102,55 @@ require([
     }
 
     // 5. LÒGICA ESPECÍFICA ROBOTS (DASHBOARD)
-    async function carregarSeccioRobots() {
-        capaActual = CONFIG.capes.robots;
-        showView('query');
-        document.getElementById("query-title").innerText = capaActual.title;
-        document.getElementById("query-title").style.color = capaActual.color;
-        document.querySelector(".filter-panel").classList.add("hidden");
-        
-        const container = document.getElementById("results-container");
-        container.innerHTML = "<calcite-loader label='Analitzant robots...' scale='m'></calcite-loader>";
+async function carregarSeccioRobots() {
+    capaActual = CONFIG.capes.robots;
+    showView('query'); // Entrem a la vista de consulta
+    
+    document.getElementById("query-title").innerText = capaActual.title;
+    document.getElementById("query-title").style.color = capaActual.color;
+    
+    // Amaguem els filtres (a robots no calen)
+    document.querySelector(".filter-panel").classList.add("hidden");
+    
+    const container = document.getElementById("results-container");
+    container.innerHTML = "<calcite-loader label='Analitzant darrers estats...' scale='m'></calcite-loader>";
 
-        const layer = new FeatureLayer({ url: capaActual.url });
-        try {
-            const res = await layer.queryFeatures({
-                where: "robot IS NOT NULL",
-                outFields: ["robot", "rb_hores_finals", "robot_operatiu", "data"],
-                orderByFields: ["data DESC"],
-                num: 1000
-            });
+    const layer = new FeatureLayer({ url: capaActual.url });
+    try {
+        const res = await layer.queryFeatures({
+            where: "robot IS NOT NULL",
+            outFields: ["robot", "rb_hores_finals", "robot_operatiu", "data"],
+            orderByFields: ["data DESC"],
+            num: 500
+        });
 
-            const ultimsEstats = new Map();
-            res.features.forEach(f => {
-                const nom = f.attributes.robot;
-                if (!ultimsEstats.has(nom)) ultimsEstats.set(nom, f.attributes);
-            });
+        const ultims = new Map();
+        res.features.forEach(f => {
+            const nom = f.attributes.robot;
+            if (!ultims.has(nom)) ultims.set(nom, f.attributes);
+        });
 
-            container.innerHTML = `<div class="robot-grid" id="robot-grid" style="display:grid; gap:15px; padding:10px;"></div>`;
-            const grid = document.getElementById("robot-grid");
+        container.innerHTML = `<div class="robot-grid" id="robot-grid"></div>`;
+        const grid = document.getElementById("robot-grid");
 
-            ultimsEstats.forEach((attr, nom) => {
-                const op = attr.robot_operatiu === "Si";
-                const card = document.createElement("div");
-                card.className = "robot-card"; // Estils definits al CSS
-                card.innerHTML = `
-                    <div class="robot-nom">${nom}</div>
-                    <div class="robot-hores">${attr.rb_hores_finals || 0}</div>
-                    <div class="robot-unitat-hores">HORES TOTALS</div>
-                    <div class="robot-status ${op ? 'status-si' : 'status-no'}">${op ? 'OPERATIU' : 'NO OPERATIU'}</div>
-                    <div style="font-size:0.7rem; color:#999; margin-top:10px;">Darrera entrada: ${new Date(attr.data).toLocaleDateString("ca-ES")}</div>
-                `;
-                grid.appendChild(card);
-            });
-            document.getElementById("results-count").innerText = `Estat actual de ${ultimsEstats.size} robots`;
-        } catch (e) { container.innerHTML = "<div class='error-msg'>Error al carregar Robots</div>"; }
+        ultims.forEach((attr, nom) => {
+            const op = attr.robot_operatiu === "Si";
+            const card = document.createElement("div");
+            card.className = "robot-card";
+            card.innerHTML = `
+                <div class="robot-nom">${nom}</div>
+                <div class="robot-hores">${attr.rb_hores_finals || 0}</div>
+                <div class="robot-unitat-hores">HORES TOTALS</div>
+                <div class="robot-status ${op ? 'status-si' : 'status-no'}">${op ? 'OPERATIU' : 'NO OPERATIU'}</div>
+                <div style="font-size:0.75rem; color:#888; margin-top:10px;">Darrera dada: ${new Date(attr.data).toLocaleDateString("ca-ES")}</div>
+            `;
+            grid.appendChild(card);
+        });
+        document.getElementById("results-count").innerText = `Estat de ${ultims.size} robots`;
+    } catch (e) {
+        container.innerHTML = "<div class='error-msg'>Error en carregar la capa de Robots</div>";
     }
+}
 
     // 6. SELECTORS DINÀMICS
     async function carregarSelectors() {
