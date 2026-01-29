@@ -5,7 +5,7 @@ require([
     "esri/layers/FeatureLayer"
 ], function(esriIntl, OAuthInfo, esriId, FeatureLayer) {
 
-    // 1. CONFIGURACIÓ D'IDIOMA
+    // 1. CONFIGURACIÓ D'IDIOMA (Català)
     esriIntl.setLocale("ca");
 
     const CONFIG = {
@@ -14,40 +14,31 @@ require([
         masterVehiclesUrl: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/Vehicles_enViu/FeatureServer/0",
         capes: {
             treballs: { 
-                id: "treballs", 
-                title: "Seguiment de Treballs", 
+                id: "treballs", title: "Seguiment de Treballs", 
                 url: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_6b2f7fbe67a948dd9da7006de6592414/FeatureServer/0", 
-                filterField: "unitat_gepif", 
-                color: "#2e7d32" 
+                filterField: "unitat_gepif", color: "#2e7d32" 
             },
             vehicles: { 
-                id: "vehicles", 
-                title: "Consulta Vehicles", 
+                id: "vehicles", title: "Consulta Vehicles", 
                 url: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_4d92dc3fb88e4c2bb518a6399f049f08_form/FeatureServer/0", 
-                filterField: "vehicle_gepif", 
-                color: "#005e95" 
+                filterField: "vehicle_gepif", color: "#005e95" 
             },
             expedients: { 
-                id: "expedients", 
-                title: "Expedients de Treballs", 
+                id: "expedients", title: "Expedients de Treballs", 
                 url: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_dddbaf4e75c24ecaae39c1b6bfa0d201/FeatureServer/0", 
-                filterField: "unitat_gepif", 
-                color: "#6a1b9a" 
+                filterField: "unitat_gepif", color: "#6a1b9a" 
             },
             robots: { 
-                id: "robots", 
-                title: "Estat dels Robots", 
+                id: "robots", title: "Estat dels Robots", 
                 url: "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_6b2f7fbe67a948dd9da7006de6592414/FeatureServer/0",
                 color: "#ff5722" 
             }
         }
     };
 
-    let capaActual = null;
-    let dadesLocals = []; 
-    let campsCapa = [];
+    let capaActual = null, dadesLocals = [], campsCapa = [];
 
-    // 2. AUTENTICACIÓ OAUTH
+    // 2. GESTIÓ D'IDENTITAT (OAuth)
     const info = new OAuthInfo({ appId: CONFIG.appId, portalUrl: CONFIG.portalUrl, popup: false });
     esriId.registerOAuthInfos([info]);
 
@@ -62,97 +53,87 @@ require([
         if (views[name]) views[name].classList.remove("hidden");
     }
 
+    // Comprovació de sessió en carregar
     esriId.checkSignInStatus(CONFIG.portalUrl + "/sharing")
         .then(() => showView('landing'))
         .catch(() => esriId.getCredential(CONFIG.portalUrl + "/sharing"));
 
-    // 3. NAVEGACIÓ I BOTONS
+    // 3. ENLLAÇOS DE BOTONS
     document.getElementById("btn-nav-treballs").onclick = () => carregarSeccio('treballs');
     document.getElementById("btn-nav-vehicles").onclick = () => carregarSeccio('vehicles');
     document.getElementById("btn-nav-expedients").onclick = () => carregarSeccio('expedients');
     document.getElementById("btn-nav-robots").onclick = () => carregarSeccioRobots();
     
     document.getElementById("btn-back").onclick = () => showView('landing');
+    document.getElementById("btn-refresh").onclick = () => renderitzarLlista();
     document.getElementById("btn-logout").onclick = () => { esriId.destroyCredentials(); window.location.reload(); };
-    document.getElementById("btn-refresh").onclick = () => executarConsultaLocal();
     document.getElementById("btn-tanca-modal").onclick = () => document.getElementById("modal-detalls").open = false;
 
-    // 4. LÒGICA DE CÀRREGA DE SECCIÓ
+    // 4. CÀRREGA DE SECCIÓ
     async function carregarSeccio(id) {
         capaActual = CONFIG.capes[id];
         showView('query');
         
-        // UI Reset
         document.getElementById("query-title").innerText = capaActual.title;
         document.getElementById("query-title").style.color = capaActual.color;
-        document.querySelector(".filter-panel").classList.remove("hidden");
+        document.getElementById("panel-filtres").classList.remove("hidden");
         document.getElementById("results-container").innerHTML = "";
-        
-        // Configuració de filtres visuals
+
+        // Mostrar calendari o selector d'any segons el tipus
         document.getElementById("label-data").classList.toggle("hidden", id === "expedients");
         document.getElementById("label-any").classList.toggle("hidden", id !== "expedients");
-
-        // Data per defecte (fa 30 dies)
-        const fa30 = new Date();
-        fa30.setDate(fa30.getDate() - 30);
-        document.getElementById("filter-date").value = fa30.toISOString().split('T')[0];
 
         await carregarSelectors();
         await descarregarDadesServidor();
     }
 
-    // 5. LÒGICA ESPECÍFICA ROBOTS (DASHBOARD)
-async function carregarSeccioRobots() {
-    capaActual = CONFIG.capes.robots;
-    showView('query'); // Entrem a la vista de consulta
-    
-    document.getElementById("query-title").innerText = capaActual.title;
-    document.getElementById("query-title").style.color = capaActual.color;
-    
-    // Amaguem els filtres (a robots no calen)
-    document.querySelector(".filter-panel").classList.add("hidden");
-    
-    const container = document.getElementById("results-container");
-    container.innerHTML = "<calcite-loader label='Analitzant darrers estats...' scale='m'></calcite-loader>";
+    // 5. MÒDUL ROBOTS (Lògica d'últim estat)
+    async function carregarSeccioRobots() {
+        capaActual = CONFIG.capes.robots;
+        showView('query');
+        document.getElementById("query-title").innerText = capaActual.title;
+        document.getElementById("query-title").style.color = capaActual.color;
+        document.getElementById("panel-filtres").classList.add("hidden");
+        
+        const container = document.getElementById("results-container");
+        container.innerHTML = "<calcite-loader label='Processant estats...' scale='m'></calcite-loader>";
 
-    const layer = new FeatureLayer({ url: capaActual.url });
-    try {
-        const res = await layer.queryFeatures({
-            where: "robot IS NOT NULL",
-            outFields: ["robot", "rb_hores_finals", "robot_operatiu", "data"],
-            orderByFields: ["data DESC"],
-            num: 500
-        });
+        const layer = new FeatureLayer({ url: capaActual.url });
+        try {
+            const res = await layer.queryFeatures({
+                where: "robot IS NOT NULL",
+                outFields: ["robot", "rb_hores_finals", "robot_operatiu", "data"],
+                orderByFields: ["data DESC"],
+                num: 1000
+            });
 
-        const ultims = new Map();
-        res.features.forEach(f => {
-            const nom = f.attributes.robot;
-            if (!ultims.has(nom)) ultims.set(nom, f.attributes);
-        });
+            const ultims = new Map();
+            res.features.forEach(f => {
+                const nom = f.attributes.robot;
+                if (!ultims.has(nom)) ultims.set(nom, f.attributes);
+            });
 
-        container.innerHTML = `<div class="robot-grid" id="robot-grid"></div>`;
-        const grid = document.getElementById("robot-grid");
+            container.innerHTML = `<div class="robot-grid"></div>`;
+            const grid = container.querySelector(".robot-grid");
 
-        ultims.forEach((attr, nom) => {
-            const op = attr.robot_operatiu === "Si";
-            const card = document.createElement("div");
-            card.className = "robot-card";
-            card.innerHTML = `
-                <div class="robot-nom">${nom}</div>
-                <div class="robot-hores">${attr.rb_hores_finals || 0}</div>
-                <div class="robot-unitat-hores">HORES TOTALS</div>
-                <div class="robot-status ${op ? 'status-si' : 'status-no'}">${op ? 'OPERATIU' : 'NO OPERATIU'}</div>
-                <div style="font-size:0.75rem; color:#888; margin-top:10px;">Darrera dada: ${new Date(attr.data).toLocaleDateString("ca-ES")}</div>
-            `;
-            grid.appendChild(card);
-        });
-        document.getElementById("results-count").innerText = `Estat de ${ultims.size} robots`;
-    } catch (e) {
-        container.innerHTML = "<div class='error-msg'>Error en carregar la capa de Robots</div>";
+            ultims.forEach((attr, nom) => {
+                const op = attr.robot_operatiu === "Si";
+                const div = document.createElement("div");
+                div.className = "robot-card";
+                div.innerHTML = `
+                    <div class="robot-nom">${nom}</div>
+                    <div class="robot-hores">${attr.rb_hores_finals || 0}</div>
+                    <div class="robot-unitat-hores">HORES TOTALS</div>
+                    <div class="robot-status ${op ? 'status-si' : 'status-no'}">${op ? 'OPERATIU' : 'NO OPERATIU'}</div>
+                    <div style="font-size:0.7rem; color:#888; margin-top:10px;">Darrera dada: ${new Date(attr.data).toLocaleDateString("ca-ES")}</div>
+                `;
+                grid.appendChild(div);
+            });
+            document.getElementById("results-count").innerText = `Resum de ${ultims.size} robots`;
+        } catch (e) { container.innerHTML = "<div class='error-msg'>Error en la capa de Robots</div>"; }
     }
-}
 
-    // 6. SELECTORS DINÀMICS
+    // 6. GESTIÓ DE SELECTORS
     async function carregarSelectors() {
         const selector = document.getElementById("select-filter");
         selector.innerHTML = '<calcite-option value="TOTS">Tots els registres</calcite-option>';
@@ -189,7 +170,7 @@ async function carregarSeccioRobots() {
         } catch (e) { console.error("Error selectors", e); }
     }
 
-    // 7. CONSULTA I FILTRATGE LOCAL
+    // 7. DESCÀRREGA I RENDERITZACIÓ
     async function descarregarDadesServidor() {
         const container = document.getElementById("results-container");
         container.innerHTML = "<calcite-loader label='Baixant dades...' scale='m'></calcite-loader>";
@@ -200,15 +181,15 @@ async function carregarSeccioRobots() {
             const res = await layer.queryFeatures({ 
                 where: "1=1", 
                 outFields: ["*"], 
-                orderByFields: ["data DESC", "CreationDate DESC"],
                 num: 150 
             });
-            dadesLocals = res.features;
-            executarConsultaLocal();
-        } catch (e) { container.innerHTML = "<div class='error-msg'>Error de connexió amb la capa</div>"; }
+            // Ordenem per data o CreationDate a memòria (Frontend)
+            dadesLocals = res.features.sort((a, b) => (b.attributes.data || b.attributes.CreationDate) - (a.attributes.data || a.attributes.CreationDate));
+            renderitzarLlista();
+        } catch (e) { container.innerHTML = "<div class='error-msg'>Error al carregar la capa.</div>"; }
     }
 
-    function executarConsultaLocal() {
+    function renderitzarLlista() {
         const container = document.getElementById("results-container");
         const filterVal = document.getElementById("select-filter").value;
         const dataVal = document.getElementById("filter-date").value;
@@ -222,7 +203,7 @@ async function carregarSeccioRobots() {
             if (capaActual.id === "expedients" && anyVal !== "TOTS") {
                 const dRef = a.data || a.CreationDate;
                 cTemps = (new Date(dRef).getFullYear().toString() === anyVal);
-            } else if (dataVal && capaActual.id !== "expedients") {
+            } else if (dataVal && dataVal !== "") {
                 const dRef = a.data || a.CreationDate;
                 cTemps = (dRef >= dataLimit);
             }
@@ -242,20 +223,21 @@ async function carregarSeccioRobots() {
             const dataFmt = isNaN(d) ? "---" : d.toLocaleDateString("ca-ES", {day:'2-digit', month:'2-digit'});
 
             if (capaActual.id === "expedients") {
-                const estat = (a.estat_dels_treballs || "").toLowerCase().replace(/[\s\.]+/g, '-');
-                card.classList.add(`estat-${estat}`);
+                const estatRaw = a.estat_dels_treballs || "";
+                const estatClass = "estat-" + estatRaw.toLowerCase().replace(/[\s\.]+/g, '-');
+                card.classList.add(estatClass);
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div style="flex:1;"><span class="card-titol-gran">${a._id || ''} ${a.paratge || ''}</span><div class="card-subtitol-estat">${a.estat_dels_treballs || ''}</div></div>
+                        <div style="flex:1;"><span class="card-titol-gran">${a._id || ''} ${a.paratge || ''}</span><div class="card-subtitol-estat">${estatRaw}</div></div>
                         <div class="card-tag-unitat">${a.unitat_gepif || ''}</div>
                     </div>`;
             } else {
                 card.style.borderLeftColor = capaActual.color;
-                let titol = (capaActual.id === "treballs") ? a.unitat_gepif : a.vehicle_gepif;
-                let info = (capaActual.id === "treballs") ? `Exp: ${a.id_expedient_de_feines || '---'} | Jornals: ${a.jornals || 0}` : `Km: ${a.quilometres_finals || 0} km`;
+                let t = (capaActual.id === "treballs") ? a.unitat_gepif : a.vehicle_gepif;
+                let info = (capaActual.id === "treballs") ? `Exp: ${a.id_expedient_de_feines || '---'} | Jornals: ${a.jornals || 0}` : `Km finals: ${a.quilometres_finals || 0} km`;
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                        <b>${dataFmt}</b><span class="card-tag-unitat" style="color:${capaActual.color}">${titol || ''}</span>
+                        <b>${dataFmt}</b><span class="card-tag-unitat" style="color:${capaActual.color}">${t || ''}</span>
                     </div>
                     <div style="font-size:0.95rem; color:#444;">${info}</div>`;
             }
@@ -269,7 +251,6 @@ async function carregarSeccioRobots() {
         const modal = document.getElementById("modal-detalls");
         const contingut = document.getElementById("modal-contingut");
         
-        // Ordre prioritari de camps
         const prioritat = ["_id", "paratge", "estat_dels_treballs", "unitat_gepif", "data", "id_expedient_de_feines", "jornals", "observacions", "component_que_entra_la_informac", "vehicle_gepif", "quilometres_finals"];
         
         let html = '<div class="detall-llista">', processats = new Set();
@@ -286,9 +267,8 @@ async function carregarSeccioRobots() {
 
         prioritat.forEach(n => html += generaCamp(n));
         campsCapa.forEach(c => {
-            if (!["objectid", "globalid", "Shape__Area", "Shape__Length", "CreationDate", "Creator", "EditDate", "Editor"].includes(c.name) && !processats.has(c.name)) {
-                html += generaCamp(c.name);
-            }
+            const tecnics = ["objectid", "globalid", "Shape__Area", "Shape__Length", "CreationDate", "Creator", "EditDate", "Editor"];
+            if (!tecnics.includes(c.name) && !processats.has(c.name)) html += generaCamp(c.name);
         });
 
         contingut.innerHTML = html + '</div>';
