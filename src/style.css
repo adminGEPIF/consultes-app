@@ -1,91 +1,60 @@
-/* FORÇAR DESAPARICIÓ */
-.hidden { 
-    display: none !important; 
-}
-
-/* VARIABLES */
-:root {
-    --brand-treballs: #2e7d32;
-    --brand-vehicles: #005e95;
-    --bg-soft: #f8f9f8;
+/* EL MÉS IMPORTANT: FORÇAR QUE NO ES VEGI SI TÉ LA CLASSE HIDDEN */
+.hidden {
+    display: none !important;
 }
 
 body {
-    margin: 0;
-    padding: 0;
     background-color: #f0f2f0;
-    font-family: sans-serif;
+    margin: 0;
 }
 
-/* VISTES */
 .view {
     padding: 15px;
-    max-width: 600px; /* Millor per a mòbil */
+    max-width: 600px;
     margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
 }
 
-/* MENU PRINCIPAL (LANDING) */
-.welcome-section {
-    padding: 20px 10px;
-    text-align: left;
-}
-
+/* LANDING */
 .welcome-section h1 {
-    font-size: 2rem;
+    color: #2e7d32;
     font-weight: 800;
-    color: var(--brand-treballs);
-    margin: 0;
 }
 
 .grid-menu {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    width: 100%;
-}
-
-/* Estil de les targetes del menú */
-calcite-card {
-    cursor: pointer;
-    --calcite-card-container-background: #ffffff;
-    border: 1px solid #e0e0e0;
-    transition: transform 0.2s;
-}
-
-calcite-card:active {
-    transform: scale(0.98);
+    gap: 15px;
 }
 
 .card-icon {
     display: flex;
     justify-content: center;
-    padding-top: 20px;
+    padding: 20px 0;
 }
 
-/* FILTRES I LLISTAT */
+/* RESULTATS */
 .filter-panel {
     background: white;
     padding: 20px;
     border-radius: 12px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
 }
 
 .result-card {
     background: white;
     border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 15px;
+    padding: 15px;
+    margin-bottom: 12px;
     border-left: 8px solid #ccc;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
 }
 
-/* DETALL (MODAL) */
+/* DETALLS MODAL */
 .detall-item {
     border-bottom: 1px solid #eee;
-    padding: 12px 0;
+    padding: 10px 0;
 }
 
 .detall-item label {
@@ -93,9 +62,4 @@ calcite-card:active {
     font-size: 1.1rem;
     display: block;
     margin-bottom: 4px;
-}
-
-.detall-item div {
-    font-size: 1.1rem;
-    color: #444;
 }
